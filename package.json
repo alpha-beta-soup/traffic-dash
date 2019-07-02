@@ -50,7 +50,7 @@
   },
   "dependencies": {
     "aws-sdk": "^2.168.0",
-    "axios": "^0.17.1",
+    "axios": "^0.19.0",
     "clipboardy": "^1.2.2",
     "electron-compile": "^6.4.2",
     "electron-devtools-installer": "^2.2.1",
@@ -74,6 +74,7 @@
     "xml2js": "^0.4.19"
   },
   "devDependencies": {
+    "@babel/runtime": "<=7.0.0-beta.55",
     "babel-plugin-transform-async-to-generator": "^6.24.1",
     "babel-plugin-transform-es2015-classes": "^6.24.1",
     "babel-preset-env": "^1.6.1",

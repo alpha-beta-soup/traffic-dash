@@ -26,6 +26,8 @@ You will need to create a file at the project root, called `.env`. This needs to
 
 This will run with a **persistent** local camera cache. (So it will eventually fill your system.) A temporary and/or remote cache is a useful feature, it just doesn't exist as an option yet.
 
+Note that the InfoConnect credentials are managed on your behalf by the team at the NZTA. You need to email them, tell them why you want credentials (I simply said "curiosity", but you might want to link them to this project), tell them you're interested in getting access to all the APIs, and then they'll email you an email and password. You are unable to change these yourself. Le sigh. Keep them private but consider them compromised, since they are.
+
 ## Thanks to
 
 - [NZTA Traffic Camera API](https://www.nzta.govt.nz/traffic-and-travel-information/infoconnect-section-page/about-the-apis/traffic-cameras/)
