@@ -46,4 +46,4 @@ Terms of the InfoConnect API: https://www.nzta.govt.nz/traffic-and-travel-inform
 
 ## Blog
 
-https://spatialparalysis.xyz/traffic-dashboard/
+https://spatialparalysis.xyz/blog/traffic-dashboard/
