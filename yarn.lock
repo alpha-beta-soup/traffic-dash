@@ -6,6 +6,13 @@
   version "0.0.6"
   resolved "https://registry.yarnpkg.com/7zip/-/7zip-0.0.6.tgz#9cafb171af82329490353b4816f03347aa150a30"
 
+"@babel/runtime@<=7.0.0-beta.55":
+  version "7.0.0-beta.55"
+  resolved "https://registry.yarnpkg.com/@babel/runtime/-/runtime-7.0.0-beta.55.tgz#0bc33aa5a6ac0b012f37e25b9e6aaa2e489a916b"
+  dependencies:
+    core-js "^2.5.7"
+    regenerator-runtime "^0.12.0"
+
 "@babel/runtime@^7.0.0-beta.42":
   version "7.0.0-beta.47"
   resolved "https://registry.yarnpkg.com/@babel/runtime/-/runtime-7.0.0-beta.47.tgz#273f5e71629e80f6cbcd7507503848615e59f7e0"
@@ -499,12 +506,11 @@ aws4@^1.2.1, aws4@^1.6.0:
   version "1.7.0"
   resolved "https://registry.yarnpkg.com/aws4/-/aws4-1.7.0.tgz#d4d0e9b9dbfca77bf08eeb0a8a471550fe39e289"
 
-axios@^0.17.1:
-  version "0.17.1"
-  resolved "https://registry.yarnpkg.com/axios/-/axios-0.17.1.tgz#2d8e3e5d0bdbd7327f91bc814f5c57660f81824d"
+axios@^0.21.1:
+  version "0.21.1"
+  resolved "https://registry.yarnpkg.com/axios/-/axios-0.21.1.tgz#22563481962f4d6bde9a76d516ef0e5d3c09b2b8"
   dependencies:
-    follow-redirects "^1.2.5"
-    is-buffer "^1.1.5"
+    follow-redirects "^1.10.0"
 
 axobject-query@^0.1.0:
   version "0.1.0"
@@ -1645,6 +1651,10 @@ core-js@^2.0.0, core-js@^2.4.0, core-js@^2.5.0, core-js@^2.5.3:
   version "2.5.6"
   resolved "https://registry.yarnpkg.com/core-js/-/core-js-2.5.6.tgz#0fe6d45bf3cac3ac364a9d72de7576f4eb221b9d"
 
+core-js@^2.5.7:
+  version "2.6.12"
+  resolved "https://registry.yarnpkg.com/core-js/-/core-js-2.6.12.tgz#d9333dfa7b065e347cc5682219d6f690859cc2ec"
+
 core-util-is@1.0.2, core-util-is@~1.0.0:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/core-util-is/-/core-util-is-1.0.2.tgz#b5fd54220aa2bc5ab57aab7140c940754503c1a7"
@@ -2063,7 +2073,7 @@ duplexer2@~0.1.4:
 
 duplexer@^0.1.1, duplexer@~0.1.1:
   version "0.1.1"
-  resolved "http://registry.npmjs.org/duplexer/-/duplexer-0.1.1.tgz#ace6ff808c1ce66b57d1ebf97977acb02334cfc1"
+  resolved "https://registry.npmjs.org/duplexer/-/duplexer-0.1.1.tgz#ace6ff808c1ce66b57d1ebf97977acb02334cfc1"
 
 eachr@^3.2.0:
   version "3.2.0"
@@ -3057,11 +3067,9 @@ fmix@^0.1.0:
   dependencies:
     imul "^1.0.0"
 
-follow-redirects@^1.2.5:
-  version "1.4.1"
-  resolved "https://registry.yarnpkg.com/follow-redirects/-/follow-redirects-1.4.1.tgz#d8120f4518190f55aac65bb6fc7b85fcd666d6aa"
-  dependencies:
-    debug "^3.1.0"
+follow-redirects@^1.10.0:
+  version "1.13.1"
+  resolved "https://registry.yarnpkg.com/follow-redirects/-/follow-redirects-1.13.1.tgz#5f69b813376cee4fd0474a3aba835df04ab763b7"
 
 foreach@^2.0.5:
   version "2.0.5"
@@ -4969,7 +4977,7 @@ once@1.x, once@^1.3.0, once@^1.4.0:
 
 onetime@^1.0.0:
   version "1.1.0"
-  resolved "http://registry.npmjs.org/onetime/-/onetime-1.1.0.tgz#a1f7838f8314c516f05ecefcbc4ccfe04b4ed789"
+  resolved "https://registry.npmjs.org/onetime/-/onetime-1.1.0.tgz#a1f7838f8314c516f05ecefcbc4ccfe04b4ed789"
 
 onetime@^2.0.0:
   version "2.0.1"
@@ -5168,7 +5176,7 @@ path-type@^3.0.0:
 
 pause-stream@^0.0.11:
   version "0.0.11"
-  resolved "http://registry.npmjs.org/pause-stream/-/pause-stream-0.0.11.tgz#fe5a34b0cbce12b5aa6a2b403ee2e73b602f1445"
+  resolved "https://registry.npmjs.org/pause-stream/-/pause-stream-0.0.11.tgz#fe5a34b0cbce12b5aa6a2b403ee2e73b602f1445"
   dependencies:
     through "~2.3"
 
@@ -5888,6 +5896,10 @@ regenerator-runtime@^0.11.0, regenerator-runtime@^0.11.1:
   version "0.11.1"
   resolved "https://registry.yarnpkg.com/regenerator-runtime/-/regenerator-runtime-0.11.1.tgz#be05ad7f9bf7d22e056f9726cee5017fbf19e2e9"
 
+regenerator-runtime@^0.12.0:
+  version "0.12.1"
+  resolved "https://registry.yarnpkg.com/regenerator-runtime/-/regenerator-runtime-0.12.1.tgz#fa1a71544764c036f8c49b13a08b2594c9f8a0de"
+
 regenerator-transform@^0.10.0:
   version "0.10.1"
   resolved "https://registry.yarnpkg.com/regenerator-transform/-/regenerator-transform-0.10.1.tgz#1e4996837231da8b7f3cf4114d71b5691a0680dd"
@@ -6504,7 +6516,7 @@ stream-buffers@~2.2.0:
 
 stream-combiner@^0.2.2:
   version "0.2.2"
-  resolved "http://registry.npmjs.org/stream-combiner/-/stream-combiner-0.2.2.tgz#aec8cbac177b56b6f4fa479ced8c1912cee52858"
+  resolved "https://registry.npmjs.org/stream-combiner/-/stream-combiner-0.2.2.tgz#aec8cbac177b56b6f4fa479ced8c1912cee52858"
   dependencies:
     duplexer "~0.1.1"
     through "~2.3.4"
