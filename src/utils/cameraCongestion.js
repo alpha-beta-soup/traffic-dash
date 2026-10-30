@@ -8,29 +8,11 @@ import congestionEnum from '../consts/congestionEnum';
 import trafficEnum, { MATCHABLE_CLASS } from '../consts/trafficEnum';
 import calculateCongestionScore from './calculateCongestionScore';
 import congestionConversion from './congestionConversion';
+import { distanceToSegment, lines, projector } from './geometry';
 
 const MATCH_RADIUS = 200; // metres
 const MAX_HEADING_DIFFERENCE = 60; // degrees
 const HEADINGS = { Northbound: 0, Eastbound: 90, Southbound: 180, Westbound: 270 };
-
-const lines = (geometry) => {
-  if (geometry.type === 'LineString') return [geometry.coordinates];
-  if (geometry.type === 'MultiLineString') return geometry.coordinates;
-  return [];
-};
-
-// Local flat projection around a camera, in metres: plenty accurate over a few hundred metres
-const projector = ({ lat, lon }) => {
-  const kx = 111320 * Math.cos((lat * Math.PI) / 180);
-  return ([x, y]) => [(x - lon) * kx, (y - lat) * 110540];
-};
-
-const distanceToSegment = ([ax, ay], [bx, by]) => {
-  const dx = bx - ax;
-  const dy = by - ay;
-  const t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / (dx * dx + dy * dy || 1)));
-  return Math.hypot(ax + t * dx, ay + t * dy);
-};
 
 const heading = ([ax, ay], [bx, by]) => ((Math.atan2(bx - ax, by - ay) * 180) / Math.PI + 360) % 360;
 const angleBetween = (a, b) => Math.abs(((a - b + 540) % 360) - 180);

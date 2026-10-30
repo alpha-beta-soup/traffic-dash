@@ -3,6 +3,7 @@ export { default as filterCamerasByBbox } from './filterCamerasByBbox';
 export { default as getWeatherIcon } from './weatherIcon';
 export { default as groupCameraSites, SITE_ICONS } from './groupCameraSites';
 export { default as loopFrame } from './loopClock';
+export { default as nearbyEvents } from './nearbyEvents';
 export { drawSignPage, signPages, signSize, signThumbnail } from './ledSign';
 export { default as randomInt } from './randomInt';
 export { default as replaceAll } from './replaceAll';

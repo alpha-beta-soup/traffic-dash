@@ -4,7 +4,7 @@ import express from 'express';
 
 import { cacheDir, listFrames } from './cache.js';
 import { getImage, showingPlaceholder } from './images.js';
-import { normaliseCamera, normaliseSign } from './normalise.js';
+import { normaliseCamera, normaliseEvent, normaliseSign } from './normalise.js';
 import {
   MAX_ZOOM as TILE_MAX_ZOOM, MIN_ZOOM as TILE_MIN_ZOOM, TILE_TTL, getTile,
 } from './trafficTiles.js';
@@ -47,6 +47,16 @@ const getCameras = memo(60_000, async () => {
   return data.response.camera.map(normaliseCamera);
 });
 
+// Road events: crashes, closures, roadworks, hazards. Only those in effect now; the zoom level
+// sets the detail of their geometry, and 12 is plenty for a city view.
+const getEvents = memo(2 * 60_000, async () => {
+  const data = await fetchJson(`${TRAFFICNZ_API}/events/all/12`, { headers: { Accept: 'application/json' } });
+  return [data.response.roadevent ?? []].flat()
+    .filter(event => event.status === 'Active')
+    .map(normaliseEvent)
+    .filter(Boolean);
+});
+
 const getSigns = memo(60_000, async () => {
   const data = await fetchJson(`${TRAFFICNZ_API}/signs/vms/all`, { headers: { Accept: 'application/json' } });
   return data.response.vms.map(normaliseSign);
@@ -70,6 +80,10 @@ app.get('/api/cameras', handle(async (req, res) => {
 
 app.get('/api/signs', handle(async (req, res) => {
   res.json(await getSigns());
+}));
+
+app.get('/api/events', handle(async (req, res) => {
+  res.json(await getEvents());
 }));
 
 app.get('/api/cameras/:id/image', handle(async (req, res) => {

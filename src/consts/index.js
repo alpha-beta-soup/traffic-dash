@@ -1,6 +1,7 @@
 export { default as congestionEnum } from './congestionEnum';
 export { default as trafficEnum } from './trafficEnum';
 export { default as descriptionReplace } from './descriptionReplace';
+export { default as eventImpacts } from './eventImpacts';
 
 // Loops replay the last ANIMATION_WINDOW at ANIMATION_SPEEDUP (so a minute plays in 300ms),
 // all in sync: see utils/loopClock.js

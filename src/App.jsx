@@ -10,9 +10,10 @@ import { DEFAULT_LAYERS } from './components/LayersMenu';
 import TrafficMap from './components/Map';
 import useStoredSetting from './hooks/useStoredSetting';
 import { MAX_CAMERAS_IN_VIEW, congestionEnum } from './consts';
-import { fetchJson, filterCamerasByBbox } from './utils';
+import { fetchJson, filterCamerasByBbox, nearbyEvents } from './utils';
 
 const SIGNS_REFRESH = 60000;
+const EVENTS_REFRESH = 2 * 60_000; // The server reuses the feed for 2 minutes
 const CAMERAS_REFRESH = 2 * 60_000;
 const CARD_SIZE = { xs: 12, sm: 6, md: 4, lg: 2 }; // Grid columns per card, out of 12
 const NO_CONGESTION = new Map();
@@ -24,6 +25,7 @@ export default function App() {
   const [config, setConfig] = useState(null);
   const [cameras, setCameras] = useState([]);
   const [signs, setSigns] = useState([]);
+  const [events, setEvents] = useState([]);
   const [bounds, setBounds] = useState(null);
   const [pinned, setPinned] = useStoredSetting('pinned', []); // camera ids
   const [loopAll, setLoopAll] = useStoredSetting('loop-all', true);
@@ -66,6 +68,13 @@ export default function App() {
       .catch(console.error);
     loadSigns();
     const timer = setInterval(loadSigns, SIGNS_REFRESH);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const loadEvents = () => fetchJson('/api/events').then(setEvents).catch(console.error);
+    loadEvents();
+    const timer = setInterval(loadEvents, EVENTS_REFRESH);
     return () => clearInterval(timer);
   }, []);
 
@@ -133,6 +142,7 @@ export default function App() {
                 traffic={config.traffic}
                 cameras={cameras}
                 signs={signs}
+                events={events}
                 centre={centre}
                 congestion={congestion}
                 isShown={passesFilter}
@@ -152,6 +162,7 @@ export default function App() {
                 camera={camera}
                 config={config ?? {}}
                 congestion={congestion.get(camera.id)}
+                nearbyEvents={nearbyEvents(camera, events)}
                 loopAll={loopAll}
                 pinned={pinned.includes(camera.id)}
                 onPin={togglePin}

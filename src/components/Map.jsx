@@ -6,11 +6,12 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 
 import CongestionLegend from './CongestionLegend';
+import EventPopup from './EventPopup';
 import LayersMenu from './LayersMenu';
 import SitePopup, { DIRECTION_ORDER } from './SitePopup';
 import useLatest from '../hooks/useLatest';
 import {
-  EMPTY, SIGN_LAYERS, SIGN_PAGE_TIME, addLayers, signIcon, signImageId, trafficOpacity, trafficTiles,
+  EMPTY, EVENT_LAYERS, SIGN_LAYERS, SIGN_PAGE_TIME, addLayers, signIcon, signImageId, trafficOpacity, trafficTiles,
 } from '../map/layers';
 import { TRAFFIC_REFRESH } from '../consts';
 import {
@@ -48,7 +49,7 @@ const toGeojson = items => ({
 });
 
 export default function Map({
-  styleUrl, traffic, cameras, signs, centre, congestion, isShown, minimised,
+  styleUrl, traffic, cameras, signs, events, centre, congestion, isShown, minimised,
   layers, onBoundsChange, onSiteClick, onCongestion, onToggleMinimised, onLayersChange,
 }) {
   const container = useRef(null);
@@ -58,6 +59,7 @@ export default function Map({
   const onSiteClickRef = useLatest(onSiteClick);
   const onCongestionRef = useLatest(onCongestion);
   const camerasRef = useLatest(cameras);
+  const eventsRef = useLatest(events);
   const congestionRef = useLatest(congestion);
   const minimisedRef = useLatest(minimised);
   const attributionRef = useRef(null);
@@ -68,16 +70,17 @@ export default function Map({
   const reportBoundsRef = useRef(null);
   const [hovered, setHovered] = useState(null); // { cameras, lngLat }: the site under the pointer
   const hoverKey = useRef(null);
+  const [hoveredEvent, setHoveredEvent] = useState(null); // The road event under the pointer
   const [, setMoved] = useState(0);
 
-  // Keep the hover popup on its site if the map moves underneath it (e.g. scroll-zooming)
+  // Keep a hover popup on its icon if the map moves underneath it (e.g. scroll-zooming)
   useEffect(() => {
     const map = mapRef.current;
-    if (!hovered || !map) return undefined;
+    if ((!hovered && !hoveredEvent) || !map) return undefined;
     const onMove = () => setMoved(n => n + 1);
     map.on('move', onMove);
     return () => map.off('move', onMove);
-  }, [hovered]);
+  }, [hovered, hoveredEvent]);
 
   useEffect(() => {
     const map = new maplibregl.Map({
@@ -166,6 +169,18 @@ export default function Map({
       map.setFilter('sign-expanded', ['==', ['get', 'id'], -1]);
     });
 
+    // Hovering a road event's icon shows its details
+    map.on('mousemove', 'events', (e) => {
+      if (minimisedRef.current) return;
+      const { id } = e.features[0].properties;
+      map.getCanvas().style.cursor = 'pointer';
+      setHoveredEvent(current => (current?.id === id ? current : eventsRef.current.find(event => event.id === id) ?? null));
+    });
+    map.on('mouseleave', 'events', () => {
+      map.getCanvas().style.cursor = '';
+      setHoveredEvent(null);
+    });
+
     // Traffic changes every few minutes: refetch the tiles (the server shares them between viewers)
     const refresh = setInterval(() => map.getSource('traffic')?.setTiles(trafficTiles()), TRAFFIC_REFRESH);
 
@@ -175,7 +190,7 @@ export default function Map({
       mapRef.current = null;
       map.remove();
     };
-  }, [styleUrl, traffic, onBoundsChangeRef, onSiteClickRef, onCongestionRef, camerasRef, congestionRef, minimisedRef]);
+  }, [styleUrl, traffic, onBoundsChangeRef, onSiteClickRef, onCongestionRef, camerasRef, eventsRef, congestionRef, minimisedRef]);
 
   // Minimised: show the same area in the smaller box, and stop all interaction.
   // Runs after React has resized the container, so the map can measure its new size.
@@ -191,6 +206,7 @@ export default function Map({
       restoreView.current = view;
       hoverKey.current = null;
       setHovered(null);
+      setHoveredEvent(null);
       map.getSource('matched')?.setData(EMPTY);
       if (map.getLayer('sign-expanded')) map.setFilter('sign-expanded', ['==', ['get', 'id'], -1]);
       map.getCanvas().style.cursor = '';
@@ -211,8 +227,21 @@ export default function Map({
     if (!loaded) return;
     map.setLayoutProperty('cameras', 'text-field', layers.labels ? ['get', 'name'] : '');
     SIGN_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.signs ? 'visible' : 'none'));
+    EVENT_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.events ? 'visible' : 'none'));
     if (map.getLayer('traffic')) map.setPaintProperty('traffic', 'line-opacity', layers.traffic ? trafficOpacity : 0);
   }, [loaded, layers]);
+
+  // Road events: their geometry (points, and lines for stretches of road), and a point each for the icon
+  useEffect(() => {
+    if (!loaded) return;
+    const map = mapRef.current;
+    const properties = ({ id, impact }) => ({ id, impact });
+    map.getSource('events').setData({
+      type: 'FeatureCollection',
+      features: events.map(event => ({ type: 'Feature', geometry: event.geometry, properties: properties(event) })),
+    });
+    map.getSource('event-icons').setData(toGeojson(events.map(event => ({ lat: event.lat, lon: event.lon, ...properties(event) }))));
+  }, [loaded, events]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -301,6 +330,9 @@ export default function Map({
       />
       {traffic && layers.traffic && !minimised && <CongestionLegend />}
       {hovered && !minimised && mapRef.current && <SitePopup map={mapRef.current} {...hovered} />}
+      {hoveredEvent && !minimised && mapRef.current && (
+        <EventPopup map={mapRef.current} event={hoveredEvent} lngLat={[hoveredEvent.lon, hoveredEvent.lat]} />
+      )}
     </Paper>
   );
 }

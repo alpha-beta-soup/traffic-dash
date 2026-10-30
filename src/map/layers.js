@@ -1,8 +1,9 @@
 // The map's own sources and layers, and their styling: camera sites, message signs, Mapbox
 // traffic lines, and the hover highlight of the segments a site's congestion came from
-import { BLACK, congestionEnum, trafficEnum } from '../consts';
+import { BLACK, congestionEnum, eventImpacts, trafficEnum } from '../consts';
 import { MATCHABLE_CLASS } from '../consts/trafficEnum';
 import { SITE_ICONS, signThumbnail } from '../utils';
+import eventIcon from './eventIcon';
 import siteIcon from './siteIcon';
 
 export const EMPTY = { type: 'FeatureCollection', features: [] };
@@ -45,11 +46,34 @@ export const signIcon = tick => ['get', ['concat', 'page', ['to-string', ['%', t
 
 const DIMMED_LABEL = '#8a96a3';
 
+export const EVENT_LAYERS = ['event-areas', 'events'];
+const eventIconId = impact => `event-${impact}`;
+const byImpact = (key, fallback) => ['match', ['get', 'impact'],
+  ...Object.entries(eventImpacts).flatMap(([impact, style]) => [impact, style[key]]),
+  fallback];
+
 export const addLayers = (map, traffic) => {
   SITE_ICONS.forEach(icon => map.addImage(icon, siteIcon(icon.replace('site-', '')), { pixelRatio: 2 }));
   map.addSource('cameras', { type: 'geojson', data: EMPTY });
   map.addSource('signs', { type: 'geojson', data: EMPTY });
   map.addSource('matched', { type: 'geojson', data: EMPTY });
+  map.addSource('events', { type: 'geojson', data: EMPTY }); // Event geometry: points and lines
+  map.addSource('event-icons', { type: 'geojson', data: EMPTY }); // One point per event, for its icon
+  Object.entries(eventImpacts).forEach(([impact, style]) => map.addImage(eventIconId(impact), eventIcon(style), { pixelRatio: 2 }));
+  // Events along a stretch of road (roadworks, closures): a translucent band, under the traffic lines
+  map.addLayer({
+    id: 'event-areas',
+    type: 'line',
+    source: 'events',
+    minzoom: 8,
+    filter: ['in', ['geometry-type'], ['literal', ['LineString', 'MultiLineString']]],
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': byImpact('color', '#888'),
+      'line-width': ['interpolate', ['linear'], ['zoom'], 8, 4, 14, 14],
+      'line-opacity': 0.3,
+    },
+  });
   if (traffic) {
     map.addSource('traffic', {
       type: 'vector',
@@ -119,6 +143,19 @@ export const addLayers = (map, traffic) => {
       'text-color': ['case', ['get', 'dim'], DIMMED_LABEL, BLACK],
       'text-halo-color': 'white',
       'text-halo-width': 1.6,
+    },
+  });
+  // Road events, above the camera sites so an incident is never hidden; closures on top
+  map.addLayer({
+    id: 'events',
+    type: 'symbol',
+    source: 'event-icons',
+    layout: {
+      'icon-image': ['concat', 'event-', ['get', 'impact']],
+      'icon-allow-overlap': true,
+      'icon-ignore-placement': true,
+      'icon-size': ['interpolate', ['linear'], ['zoom'], 6, 0.7, 12, 1],
+      'symbol-sort-key': ['-', 3, byImpact('rank', 3)], // Higher keys draw on top
     },
   });
   // The hovered sign, full size, just above its icon and on top of everything

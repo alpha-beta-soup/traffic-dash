@@ -21,6 +21,7 @@ import {
   MAX_REFRESH,
   MIN_REFRESH,
   descriptionReplace,
+  eventImpacts,
 } from '../consts';
 import {
   fetchJson,
@@ -42,8 +43,27 @@ export function CameraTime({ time }) {
   return <Chip size="small" label={timeAgo(time, now)} sx={overlayChip} />;
 }
 
+// The most serious road event near the camera, e.g. "Road closed nearby", with the details on hover
+function NearbyEvent({ events }) {
+  const [event] = events;
+  const impact = eventImpacts[event.impact];
+  const more = events.length > 1 ? ` (+${events.length - 1} more)` : '';
+  return (
+    <Chip
+      size="small"
+      label={`${impact.label} nearby${more}`}
+      title={events.map(e => `${eventImpacts[e.impact].label}: ${e.cause}, ${e.area}`).join('\n')}
+      // Bottom left, clear of the time chip at the top
+      sx={{ ...overlayChip, position: 'absolute', bottom: 14, left: 6, bgcolor: impact.color, color: 'white', fontWeight: 500 }}
+    />
+  );
+}
+
 // congestion comes from the map, which matches cameras to the traffic lines it has loaded
-export default function Camera({ camera, config, congestion, loopAll, pinned, onPin, onFocus }) {
+// nearbyEvents: road closures and delays near the camera, most serious first
+export default function Camera({
+  camera, config, congestion, nearbyEvents = [], loopAll, pinned, onPin, onFocus,
+}) {
   const { id, name, description, lat, lon, imageUrl, offline, underMaintenance } = camera;
   const unavailable = offline || underMaintenance;
   const [live, setLive] = useState(null); // { src, time }
@@ -148,6 +168,7 @@ export default function Camera({ camera, config, congestion, loopAll, pinned, on
         <Box sx={{ position: 'absolute', top: 6, right: 6 }}>
           {!placeholder && <CameraTime time={time} />}
         </Box>
+        {nearbyEvents.length > 0 && <NearbyEvent events={nearbyEvents} />}
       </Box>
       <CardContent sx={{ flexGrow: 1 }}>
         <Typography variant="h6" sx={{ color: BLACK, lineHeight: 1.2 }}>

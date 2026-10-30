@@ -5,7 +5,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 
-export const DEFAULT_LAYERS = Object.freeze({ labels: true, signs: true, traffic: true });
+export const DEFAULT_LAYERS = Object.freeze({ labels: true, signs: true, events: true, traffic: true });
 
 // Which optional map layers to show; 'traffic' is offered only when traffic data is available
 export default function LayersMenu({ layers, onChange, traffic }) {
@@ -13,6 +13,7 @@ export default function LayersMenu({ layers, onChange, traffic }) {
   const options = [
     ['labels', 'Camera labels'],
     ['signs', 'Message signs'],
+    ['events', 'Road events'],
     ...(traffic ? [['traffic', 'Congestion']] : []),
   ];
   return (
