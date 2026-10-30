@@ -8,49 +8,30 @@ import Camera from './components/Camera';
 import ErrorSnackbar from './components/ErrorSnackbar';
 import { DEFAULT_LAYERS } from './components/LayersMenu';
 import TrafficMap from './components/Map';
+import useStoredSetting from './hooks/useStoredSetting';
 import { MAX_CAMERAS_IN_VIEW, congestionEnum } from './consts';
 import { fetchJson, filterCamerasByBbox } from './utils';
 
 const SIGNS_REFRESH = 60000;
 const CAMERAS_REFRESH = 2 * 60_000;
 const CARD_SIZE = { xs: 12, sm: 6, md: 4, lg: 2 }; // Grid columns per card, out of 12
-const PINNED_KEY = 'traffic-dash:pinned';
-const LOOP_ALL_KEY = 'traffic-dash:loop-all';
-const MAP_LAYERS_KEY = 'traffic-dash:map-layers';
-const CONGESTION_FILTER_KEY = 'traffic-dash:congestion-filter';
 const NO_CONGESTION = new Map();
 
 const sameCongestion = (a, b) => (a?.level === b?.level && a?.score === b?.score
   && a?.segments.length === b?.segments.length);
-
-const loadSetting = (key, fallback) => {
-  try {
-    return JSON.parse(localStorage.getItem(key)) ?? fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const saveSetting = (key, value) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Not persisted; the setting still applies for this session
-  }
-};
 
 export default function App() {
   const [config, setConfig] = useState(null);
   const [cameras, setCameras] = useState([]);
   const [signs, setSigns] = useState([]);
   const [bounds, setBounds] = useState(null);
-  const [pinned, setPinned] = useState(() => loadSetting(PINNED_KEY, [])); // camera ids
-  const [loopAll, setLoopAll] = useState(() => loadSetting(LOOP_ALL_KEY, true));
+  const [pinned, setPinned] = useStoredSetting('pinned', []); // camera ids
+  const [loopAll, setLoopAll] = useStoredSetting('loop-all', true);
   // Merged with the defaults, so a layer added later starts on
-  const [mapLayers, setMapLayers] = useState(() => ({ ...DEFAULT_LAYERS, ...loadSetting(MAP_LAYERS_KEY, {}) }));
+  const [mapLayers, setMapLayers] = useStoredSetting('map-layers', DEFAULT_LAYERS, (defaults, saved) => ({ ...defaults, ...saved }));
   const [congestion, setCongestion] = useState(NO_CONGESTION); // camera id -> matched congestion
   // 'all', or the least severe congestion level to show
-  const [congestionFilter, setCongestionFilter] = useState(() => loadSetting(CONGESTION_FILTER_KEY, 'all'));
+  const [congestionFilter, setCongestionFilter] = useStoredSetting('congestion-filter', 'all');
   const [centre, setCentre] = useState(null);
   const [mapMinimised, setMapMinimised] = useState(false);
   const [error, setError] = useState(null);
@@ -88,11 +69,6 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => saveSetting(PINNED_KEY, pinned), [pinned]);
-  useEffect(() => saveSetting(LOOP_ALL_KEY, loopAll), [loopAll]);
-  useEffect(() => saveSetting(MAP_LAYERS_KEY, mapLayers), [mapLayers]);
-  useEffect(() => saveSetting(CONGESTION_FILTER_KEY, congestionFilter), [congestionFilter]);
-
   // Results for the cameras the map just evaluated; others keep their last known congestion.
   // Only update when something changed, as each update redraws the map, which re-evaluates.
   const updateCongestion = useCallback((results, evaluatedIds) => {
@@ -112,14 +88,14 @@ export default function App() {
 
   const togglePin = useCallback((id) => {
     setPinned(ids => (ids.includes(id) ? ids.filter(i => i !== id) : [...ids, id]));
-  }, []);
+  }, [setPinned]);
 
   // For a site on the map: pin all its cameras, or unpin them if they're all pinned already
   const toggleSitePins = useCallback((siteIds) => {
     setPinned(ids => (siteIds.every(id => ids.includes(id))
       ? ids.filter(id => !siteIds.includes(id))
       : [...new Set([...ids, ...siteIds])]));
-  }, []);
+  }, [setPinned]);
 
   // A minimised map can't move, so focusing a camera expands it first
   const focus = useCallback((camera) => {
