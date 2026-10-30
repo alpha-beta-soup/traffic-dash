@@ -2,41 +2,43 @@
 
 A dashboard for New Zealand traffic cameras and congestion information.
 
-An Electron application, so it should run on any platform. However this has been developed solely on Linux, so no guarantees.
+A web app (React + MapLibre, built with Vite) with a small Node/Express server. The server proxies the NZTA traffic feeds, which can't be called from a browser because they send no CORS headers. It also keeps API keys out of the browser and caches recent camera frames on disk so a camera's last few hours can be animated.
 
-**In development.**
+## Running
 
-## Running for development
+Requires Node 22+.
 
-You will need to create a file at the project root, called `.env`. This needs to contain a series of variables. First `cp .env.template .env` and then fill in the variables as follows:
+```sh
+cp .env.template .env   # optional: fill in keys
+npm install
+npm run dev             # server on :3000, Vite dev server on :5173 (proxies /api to the server)
+```
 
-| Key                     	| Meaning                                                                                                                                                                                                     	| Default 	|
-|-------------------------	|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|---------	|
-| `MAPBOX_TOKEN`          	| Mapbox API key (used for vector tile requests, and for vector tile query requests; free tier OK)                                                                                                            	|         	|
-| `INFOCONNECT_USER`      	| NZTA InfoConnect API username (used to get camera and signs data; free)                                                                                                                                     	|         	|
-| `INFOCONNECT_PW`        	| NZTA InfoConnect API password (used to get camera and signs data; free)                                                                                                                                     	|         	|
-| `GOOGLE_APIKEY`         	| Google API key (for [geolocation](https://developers.google.com/maps/documentation/geolocation/intro), only used once on load; free tier OK)                                                                                                                                      	|         	|
-| `OPENWEATHERMAP_APIKEY` 	| OpenWeatherMap API key (used to get weather data, and surise/sunset times for each camera; free tier OK)                                                                                                    	|         	|
-| `MIN_REFRESH`           	| Cameras are refreshed every `MIN_REFRSH` milliseconds at a minimum.                                                                                                                                         	| 10000   	|
-| `MAX_REFRESH`           	| Cameras are refreshed every `MAX_REFRESH` milliseconds at a maximum.                                                                                                                                        	| 25000   	|
-| `MIN_TRAFFIC_REFRESH`   	| Congestion data are refreshed every `MIN_TRAFFIC_REFRESH` milliseconds at a minimum. This data does not change rapidly, so don't set this very low or you will simply exceed your Mapbox API request limit. 	| 150000  	|
-| `MAX_TRAFFIC_REFRESH`   	| Congestion data are refreshed every `MAX_TRAFFIC_REFRESH` milliseconds at a maximum.                                                                                                                        	| 300000  	|
+For production: `npm run build && npm start`, then open http://localhost:3000.
 
-`npm i && npm run dev`
+All keys are optional. Without them you still get cameras and variable message signs.
 
-This will run with a **persistent** local camera cache. (So it will eventually fill your system.) A temporary and/or remote cache is a useful feature, it just doesn't exist as an option yet.
+| Key | Meaning | Default |
+|---|---|---|
+| `OPENWEATHERMAP_APIKEY` | OpenWeatherMap API key: weather and sunrise/sunset per camera (free tier OK) | |
+| `MAPBOX_TOKEN` | Mapbox token: live traffic lines on the map, per-camera congestion and the congestion filter, from Mapbox Traffic v1 vector tiles (proxied and cached by the server; free tier OK) | |
+| `MAP_STYLE` | Base map style URL | OpenFreeMap Liberty (no key) |
+| `PORT` | Server port | 3000 |
+| `CACHE_ENABLED` | Cache camera frames to `cache/` for animation | true |
+| `CACHE_MAX_AGE_HOURS` | Frames older than this are pruned | 6 |
+| `VITE_MIN_REFRESH` / `VITE_MAX_REFRESH` | Each camera refreshes at a random interval in this range (ms) | 10000 / 25000 |
 
-Note that the InfoConnect credentials are managed on your behalf by the team at the NZTA. You need to email them, tell them why you want credentials (I simply said "curiosity", but you might want to link them to this project), tell them you're interested in getting access to all the APIs, and then they'll email you an email and password. You are unable to change these yourself. Le sigh. Keep them private but consider them compromised, since they are.
+Camera and sign data come from the public [trafficnz.info REST API](https://trafficnz.info/service/traffic/rest/4/cameras/all), which replaced the old credentialed InfoConnect API.
+
+Camera images and sign data: © Waka Kotahi NZ Transport Agency. The [NZTA terms of use](https://www.journeys.nzta.govt.nz/about-this-site/terms-of-use) allow reproduction for personal use with attribution. Contact informationteam@nzta.govt.nz before any other use, such as public hosting. This project is not affiliated with or endorsed by NZTA.
 
 ## Thanks to
 
-- [NZTA Traffic Camera API](https://www.nzta.govt.nz/traffic-and-travel-information/infoconnect-section-page/about-the-apis/traffic-cameras/)
-- [NZTA Variable Message Signs API](https://www.nzta.govt.nz/traffic-and-travel-information/infoconnect-section-page/about-the-apis/auckland-traffic-api/)
-- [Mapbox Traffic v1](https://www.mapbox.com/vector-tiles/mapbox-traffic-v1/)
+- [NZTA traffic information (trafficnz.info)](https://trafficnz.info/)
+- [Mapbox Traffic v1](https://docs.mapbox.com/data/tilesets/reference/mapbox-traffic-v1/)
+- [OpenFreeMap](https://openfreemap.org/) and [MapLibre GL JS](https://maplibre.org/)
 - [OpenWeatherMap](https://openweathermap.org/)
-- [Google Maps Geolocation API](https://developers.google.com/maps/documentation/geolocation/intro)
-
-Terms of the InfoConnect API: https://www.nzta.govt.nz/traffic-and-travel-information/infoconnect-section-page/terms-of-use/
+- [Weather Icons](https://erikflowers.github.io/weather-icons/)
 
 ## Research & Prior Art
 
