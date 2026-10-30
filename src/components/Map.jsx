@@ -5,13 +5,16 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 
-import CameraPreview, { PREVIEW_WIDTH } from './CameraPreview';
+import CongestionLegend from './CongestionLegend';
 import LayersMenu from './LayersMenu';
+import SitePopup, { DIRECTION_ORDER } from './SitePopup';
 import useLatest from '../hooks/useLatest';
-import { BLACK, TRAFFIC_REFRESH, congestionEnum, trafficEnum } from '../consts';
-import { MATCHABLE_CLASS } from '../consts/trafficEnum';
 import {
-  SITE_ICONS, cameraCongestion, drawSignPage, filterCamerasByBbox, groupCameraSites, signPages, signSize, signThumbnail,
+  EMPTY, SIGN_LAYERS, SIGN_PAGE_TIME, addLayers, signIcon, signImageId, trafficOpacity, trafficTiles,
+} from '../map/layers';
+import { TRAFFIC_REFRESH } from '../consts';
+import {
+  cameraCongestion, drawSignPage, filterCamerasByBbox, groupCameraSites, signPages, signSize,
 } from '../utils';
 
 // maplibre-gl 6 looks for its worker next to its own module, which isn't there once
@@ -27,11 +30,8 @@ const REGION_HIGHLIGHTS = {
   Christchurch: [172.6362, -43.5321],
   Dunedin: [170.5028, -45.8788],
 };
-const FONT = ['Noto Sans Bold'];
 // Required by the NZTA terms of use: https://www.journeys.nzta.govt.nz/about-this-site/terms-of-use
 const NZTA_ATTRIBUTION = 'Cameras &amp; signs: <a href="https://www.journeys.nzta.govt.nz/" target="_blank" rel="noopener">Waka Kotahi NZ Transport Agency</a>';
-const MAPBOX_ATTRIBUTION = 'Traffic: <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">© Mapbox</a>';
-const EMPTY = { type: 'FeatureCollection', features: [] };
 // Every way of moving the map; all off while it's minimised
 const INTERACTIONS = ['boxZoom', 'doubleClickZoom', 'dragPan', 'dragRotate', 'keyboard', 'scrollZoom', 'touchPitch', 'touchZoomRotate'];
 // Credits are left off the minimised map. Note: OpenStreetMap, OpenMapTiles and Mapbox ask for
@@ -46,250 +46,6 @@ const toGeojson = items => ({
     properties,
   })),
 });
-
-// A new URL each refresh, so the browser can't answer from its own cache (the server
-// shares tiles between viewers regardless of the query string)
-const trafficTiles = () => [`${window.location.origin}/api/traffic-tiles/{z}/{x}/{y}.pbf?t=${Date.now()}`];
-
-// Only roads above street level are drawn, each from its trafficEnum minzoom: minor roads just
-// add clutter until zoomed in
-const drawnClasses = Object.keys(trafficEnum).filter(c => trafficEnum[c].value <= MATCHABLE_CLASS);
-const zoomSteps = [...new Set(drawnClasses.map(c => trafficEnum[c].minzoom))].filter(z => z > 0).sort((a, b) => a - b);
-const visibleClasses = zoom => drawnClasses.filter(c => trafficEnum[c].minzoom <= zoom);
-const TRAFFIC_FILTER = ['in', ['get', 'class'], ['literal', drawnClasses]];
-// Fully opaque: translucent lines darken where the short traffic segments overlap
-const opacityAt = zoom => ['match', ['get', 'class'], visibleClasses(zoom), 1, 0];
-const trafficOpacity = ['step', ['zoom'], opacityAt(0), ...zoomSteps.flatMap(z => [z, opacityAt(z)])];
-
-// Congestion styling from congestionEnum: colour and width per level
-const byCongestion = (key, fallback) => ['match', ['get', 'congestion'],
-  ...Object.entries(congestionEnum).flatMap(([level, style]) => [level, style[key]]),
-  fallback];
-const BASE_WIDTH = { 8: 1.5, 12: 2.5, 16: 5 }; // px at each zoom, for a width multiple of 1
-// Each direction sits to the left of its travel direction (NZ drives on the left), clear of the other
-const scaledByZoom = (scale, add) => ['interpolate', ['linear'], ['zoom'],
-  ...Object.entries(BASE_WIDTH).flatMap(([zoom, base]) => [Number(zoom), ['+', ['*', base * scale, byCongestion('width', 1)], add]])];
-const trafficWidth = scaledByZoom(1, 0);
-const trafficOffset = scaledByZoom(-0.5, -0.5);
-
-// Message signs show as small icons, and as LED dot-matrix images (utils/ledSign), one per
-// page, when hovered. Signs with several pages alternate between them, all in step, like the
-// real signs.
-const SIGN_PAGE_TIME = 3000; // ms
-const SIGN_LAYERS = ['signs', 'sign-expanded', 'sign-full'];
-const SIGN_FULL_ZOOM = 14; // Signs show in full from here; below it, as icons that expand on hover
-const signImageId = (pages, size, page) => `sign:${size.columns}x${size.rows}:${pages[page].map(({ left, right }) => `${left}>${right}`).join('|')}`;
-const signIcon = tick => ['get', ['concat', 'page', ['to-string', ['%', tick, ['get', 'pages']]]]];
-
-const DIMMED_LABEL = '#8a96a3';
-const QUADRANT_FILL = { w: BLACK, o: '#b8c2cc', '-': 'white' };
-
-// A circle split into N/E/S/W quarters, each filled if the site has a camera facing that way.
-// pattern: one character per quarter, as made by groupCameraSites
-const siteIcon = (pattern) => {
-  const size = 48;
-  const c = size / 2;
-  const r = 19;
-  const ctx = Object.assign(document.createElement('canvas'), { width: size, height: size }).getContext('2d');
-  ctx.beginPath();
-  ctx.arc(c, c, r + 3, 0, 2 * Math.PI);
-  ctx.fillStyle = 'white'; // Halo, so the icon reads on any base map
-  ctx.fill();
-  [...pattern].forEach((state, i) => {
-    const middle = (i - 1) * (Math.PI / 2); // Canvas angles start east; quarter 0 is north
-    ctx.beginPath();
-    ctx.moveTo(c, c);
-    ctx.arc(c, c, r, middle - Math.PI / 4, middle + Math.PI / 4);
-    ctx.closePath();
-    ctx.fillStyle = QUADRANT_FILL[state];
-    ctx.fill();
-  });
-  ctx.strokeStyle = 'white';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  [Math.PI / 4, (3 * Math.PI) / 4].forEach((a) => {
-    ctx.moveTo(c + r * Math.cos(a), c + r * Math.sin(a));
-    ctx.lineTo(c - r * Math.cos(a), c - r * Math.sin(a));
-  });
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(c, c, r, 0, 2 * Math.PI);
-  ctx.strokeStyle = BLACK;
-  ctx.stroke();
-  return ctx.getImageData(0, 0, size, size);
-};
-
-const addLayers = (map, traffic) => {
-  SITE_ICONS.forEach(icon => map.addImage(icon, siteIcon(icon.replace('site-', '')), { pixelRatio: 2 }));
-  map.addSource('cameras', { type: 'geojson', data: EMPTY });
-  map.addSource('signs', { type: 'geojson', data: EMPTY });
-  map.addSource('matched', { type: 'geojson', data: EMPTY });
-  if (traffic) {
-    map.addSource('traffic', {
-      type: 'vector',
-      tiles: trafficTiles(),
-      minzoom: 6,
-      maxzoom: 16,
-      attribution: MAPBOX_ATTRIBUTION,
-    });
-    map.addLayer({
-      id: 'traffic',
-      type: 'line',
-      source: 'traffic',
-      'source-layer': 'traffic',
-      filter: TRAFFIC_FILTER,
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: {
-        'line-color': byCongestion('color', 'transparent'),
-        'line-width': trafficWidth,
-        'line-offset': trafficOffset,
-        'line-opacity': trafficOpacity,
-      },
-    });
-  }
-  map.addLayer({
-    id: 'matched',
-    type: 'line',
-    source: 'matched',
-    layout: { 'line-cap': 'round' },
-    paint: {
-      'line-color': '#e040fb',
-      'line-width': ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 8],
-      'line-offset': ['interpolate', ['linear'], ['zoom'], 10, -2, 16, -5],
-      'line-opacity': 0.6,
-    },
-  }, traffic ? 'traffic' : undefined); // Under the traffic line, as a glow around it
-  map.addLayer({
-    id: 'signs',
-    type: 'symbol',
-    source: 'signs',
-    minzoom: 10,
-    // Small, so always shown, even overlapping other labels. At SIGN_FULL_ZOOM and beyond, full
-    // signs cover their icons; an icon still shows where its full sign is crowded out.
-    layout: { 'icon-image': 'sign-icon', 'icon-allow-overlap': true, 'icon-ignore-placement': true },
-  });
-  map.addLayer({
-    id: 'cameras',
-    type: 'symbol',
-    source: 'cameras',
-    layout: {
-      'icon-image': ['get', 'icon'],
-      'icon-allow-overlap': true,
-      'icon-ignore-placement': true,
-      'icon-rotation-alignment': 'map', // Keep the north quarter pointing north
-      'icon-pitch-alignment': 'viewport', // Stand upright when the map is tilted, rather than lying flat
-      'text-field': ['get', 'name'],
-      'text-font': FONT,
-      'text-offset': [0, 1],
-      'text-anchor': 'top',
-      'text-size': 11,
-      'text-optional': true,
-    },
-    paint: {
-      'icon-opacity': ['case', ['get', 'dim'], 0.3, 1],
-      // Dark on a white halo: reads cleanly on a light base map, and matches the cards.
-      // Sites the congestion filter leaves out get grey text rather than transparency,
-      // which would fade the halo too and blur the label into the map.
-      'text-color': ['case', ['get', 'dim'], DIMMED_LABEL, BLACK],
-      'text-halo-color': 'white',
-      'text-halo-width': 1.6,
-    },
-  });
-  // The hovered sign, full size, just above its icon and on top of everything
-  map.addImage('sign-icon', signThumbnail(), { pixelRatio: 2 });
-  map.addLayer({
-    id: 'sign-expanded',
-    type: 'symbol',
-    source: 'signs',
-    filter: ['==', ['get', 'id'], -1],
-    layout: {
-      'icon-image': signIcon(0),
-      'icon-anchor': 'bottom',
-      'icon-offset': [0, -8],
-      'icon-allow-overlap': true,
-      'icon-ignore-placement': true,
-    },
-  });
-  // Zoomed in far enough, every sign shows in full. They avoid overlapping each other
-  // (e.g. two signs on one gantry): one shows until zoomed in further.
-  map.addLayer({
-    id: 'sign-full',
-    type: 'symbol',
-    source: 'signs',
-    minzoom: SIGN_FULL_ZOOM,
-    layout: {
-      'icon-image': signIcon(0),
-      // Lower keys are placed first, so in a collision an incident or warning message wins over
-      // routine travel times (whose icon still shows)
-      'symbol-sort-key': ['case', ['get', 'travelTimes'], 1, 0],
-    },
-  });
-};
-
-const DIRECTION_ORDER = ['Northbound', 'Eastbound', 'Southbound', 'Westbound'];
-const POPUP_GAP = 6; // px between previews, and around them
-const POPUP_OFFSET = 18; // px between the site icon and the popup
-
-// The hovered site's cameras, looping. Above the site, or below it if there's no room; kept
-// inside the map horizontally. pointer-events: none, so it never steals the hover from the map.
-function SitePopup({ map, cameras, lngLat }) {
-  const columns = Math.min(cameras.length, 2);
-  const rows = Math.ceil(cameras.length / columns);
-  const width = columns * PREVIEW_WIDTH + (columns + 1) * POPUP_GAP;
-  const height = rows * (PREVIEW_WIDTH * 0.75 + 34) + (rows + 1) * POPUP_GAP; // Image plus a caption of up to 2 lines
-  const point = map.project(lngLat);
-  const container = map.getContainer();
-  const left = Math.min(Math.max(point.x - width / 2, POPUP_GAP), container.clientWidth - width - POPUP_GAP);
-  const above = point.y - POPUP_OFFSET - height >= POPUP_GAP;
-  const top = above ? point.y - POPUP_OFFSET - height : point.y + POPUP_OFFSET;
-  return (
-    <Paper
-      elevation={6}
-      sx={{
-        position: 'absolute', left, top, zIndex: 3, p: `${POPUP_GAP}px`, pointerEvents: 'none',
-        display: 'grid', gridTemplateColumns: `repeat(${columns}, ${PREVIEW_WIDTH}px)`, gap: `${POPUP_GAP}px`,
-      }}
-    >
-      {cameras.map(camera => <CameraPreview key={camera.id} camera={camera} />)}
-    </Paper>
-  );
-}
-
-// Names each congestion level, drawn as it appears on the map (at the zoom-12 base width)
-function CongestionLegend() {
-  const levels = Object.values(congestionEnum).sort((a, b) => b.value - a.value); // Low first
-  return (
-    <Box
-      component="ul"
-      aria-label="Congestion key"
-      sx={{
-        position: 'absolute', left: 10, bottom: 26, zIndex: 1, m: 0, px: 1, py: 0.5,
-        listStyle: 'none', bgcolor: 'rgba(255,255,255,0.9)', borderRadius: 1, boxShadow: 1,
-        fontSize: '0.75rem', color: BLACK,
-      }}
-    >
-      {levels.map(({ description, color, width }) => {
-        const strokeWidth = BASE_WIDTH[12] * width;
-        return (
-          <Box component="li" key={description} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <svg width="36" height="12" aria-hidden="true">
-              <line
-                x1={strokeWidth / 2 + 1}
-                x2={36 - strokeWidth / 2 - 1}
-                y1="6"
-                y2="6"
-                stroke={color}
-                strokeWidth={strokeWidth}
-                strokeLinecap="round"
-              />
-            </svg>
-            {description}
-          </Box>
-        );
-      })}
-    </Box>
-  );
-}
 
 export default function Map({
   styleUrl, traffic, cameras, signs, centre, congestion, isShown, minimised,
