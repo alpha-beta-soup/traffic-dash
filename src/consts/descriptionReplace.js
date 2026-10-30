@@ -1,4 +1,4 @@
-module.exports = Object.freeze({
+export default Object.freeze({
   Mwy: 'Motorway',
   Hwy: 'Highway',
   Hbr: 'Harbour',
@@ -12,7 +12,9 @@ module.exports = Object.freeze({
   Exwy: 'Expressway',
   Gt: 'Great',
   Rd: 'Road',
-  St: 'Street',
+  // Street after a name ("Durham St"), but Saint at the start or after a lowercase word
+  // ("in St Arnaud", "from St Andrew St"), which is left as it is
+  St: before => (/[A-Z]\S*\s+$/.test(before) ? 'Street' : null),
   Dr: 'Drive',
   Ave: 'Avenue',
   Pl: 'Place'

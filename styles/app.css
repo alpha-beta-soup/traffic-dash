@@ -1,0 +1,13 @@
+body {
+  margin: 0;
+  overflow-y: scroll;
+}
+
+.wi {
+  font-size: 120%;
+  color: inherit; /* Follows the text colour, in light and dark themes */
+}
+
+.wi + .wi {
+  margin-left: 15px;
+}

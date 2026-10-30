@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- A tiny LED variable message sign, as on the map -->
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="0.6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect x="0" y="4.5" width="32" height="23" rx="4" fill="#4a4a4a"/>
+  <rect x="1.6" y="6.1" width="28.8" height="19.8" rx="2.6" fill="#080808"/>
+  <g filter="url(#glow)">
+    <circle cx="4.1" cy="9.2" r="0.75" fill="#3a2a10"/>
+    <circle cx="7.5" cy="9.2" r="1.35" fill="#ffae1a"/>
+    <circle cx="10.9" cy="9.2" r="1.35" fill="#ffae1a"/>
+    <circle cx="14.3" cy="9.2" r="1.35" fill="#ffae1a"/>
+    <circle cx="17.7" cy="9.2" r="0.75" fill="#3a2a10"/>
+    <circle cx="21.1" cy="9.2" r="1.35" fill="#ffae1a"/>
+    <circle cx="24.5" cy="9.2" r="1.35" fill="#ffae1a"/>
+    <circle cx="27.9" cy="9.2" r="1.35" fill="#ffae1a"/>
+    <circle cx="4.1" cy="12.6" r="0.75" fill="#3a2a10"/>
+    <circle cx="7.5" cy="12.6" r="0.75" fill="#3a2a10"/>
+    <circle cx="10.9" cy="12.6" r="0.75" fill="#3a2a10"/>
+    <circle cx="14.3" cy="12.6" r="0.75" fill="#3a2a10"/>
+    <circle cx="17.7" cy="12.6" r="0.75" fill="#3a2a10"/>
+    <circle cx="21.1" cy="12.6" r="0.75" fill="#3a2a10"/>
+    <circle cx="24.5" cy="12.6" r="0.75" fill="#3a2a10"/>
+    <circle cx="27.9" cy="12.6" r="0.75" fill="#3a2a10"/>
+    <circle cx="4.1" cy="16.0" r="1.35" fill="#ffae1a"/>
+    <circle cx="7.5" cy="16.0" r="1.35" fill="#ffae1a"/>
+    <circle cx="10.9" cy="16.0" r="1.35" fill="#ffae1a"/>
+    <circle cx="14.3" cy="16.0" r="1.35" fill="#ffae1a"/>
+    <circle cx="17.7" cy="16.0" r="0.75" fill="#3a2a10"/>
+    <circle cx="21.1" cy="16.0" r="1.35" fill="#ffae1a"/>
+    <circle cx="24.5" cy="16.0" r="1.35" fill="#ffae1a"/>
+    <circle cx="27.9" cy="16.0" r="0.75" fill="#3a2a10"/>
+    <circle cx="4.1" cy="19.4" r="0.75" fill="#3a2a10"/>
+    <circle cx="7.5" cy="19.4" r="0.75" fill="#3a2a10"/>
+    <circle cx="10.9" cy="19.4" r="0.75" fill="#3a2a10"/>
+    <circle cx="14.3" cy="19.4" r="0.75" fill="#3a2a10"/>
+    <circle cx="17.7" cy="19.4" r="0.75" fill="#3a2a10"/>
+    <circle cx="21.1" cy="19.4" r="0.75" fill="#3a2a10"/>
+    <circle cx="24.5" cy="19.4" r="0.75" fill="#3a2a10"/>
+    <circle cx="27.9" cy="19.4" r="0.75" fill="#3a2a10"/>
+    <circle cx="4.1" cy="22.8" r="0.75" fill="#3a2a10"/>
+    <circle cx="7.5" cy="22.8" r="0.75" fill="#3a2a10"/>
+    <circle cx="10.9" cy="22.8" r="1.35" fill="#ffae1a"/>
+    <circle cx="14.3" cy="22.8" r="1.35" fill="#ffae1a"/>
+    <circle cx="17.7" cy="22.8" r="1.35" fill="#ffae1a"/>
+    <circle cx="21.1" cy="22.8" r="0.75" fill="#3a2a10"/>
+    <circle cx="24.5" cy="22.8" r="1.35" fill="#ffae1a"/>
+    <circle cx="27.9" cy="22.8" r="1.35" fill="#ffae1a"/>
+  </g>
+</svg>
