@@ -158,7 +158,8 @@ export default function Camera({ camera, config, congestion, loopAll, pinned, on
         </Typography>
         <CameraWeather data={weather} />
       </CardContent>
-      <CardActions>
+      {/* Buttons shrink to their labels, and wrap rather than overflow on narrow cards */}
+      <CardActions disableSpacing sx={{ flexWrap: 'wrap', gap: 0.5, '& .MuiButton-root': { minWidth: 0, px: 1 } }}>
         <Button size="small" onClick={share}>Share</Button>
         <Button size="small" onClick={() => onFocus(camera)}>Focus</Button>
         <ToggleButton on={looping && !unavailable} onClick={() => setLooping(on => !on)} disabled={unavailable}>
