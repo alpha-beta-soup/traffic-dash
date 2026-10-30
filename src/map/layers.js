@@ -52,8 +52,17 @@ const LABELS = {
   dark: { text: '#e3eaf1', halo: '#0e1317', dimmed: '#6b7785' },
 };
 
-export const EVENT_LAYERS = ['event-areas', 'events'];
+export const EVENT_LAYERS = ['event-roads', 'event-areas', 'events'];
 const eventIconId = impact => `event-${impact}`;
+// Each impact's colour mixed with the base map's background, for opaque bands that read as a tint
+const mix = (hex, base, amount) => {
+  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const [a, b] = [rgb(hex), rgb(base)];
+  return `rgb(${a.map((v, i) => Math.round(v * (1 - amount) + b[i] * amount)).join(', ')})`;
+};
+const byImpactTint = dark => ['match', ['get', 'impact'],
+  ...Object.entries(eventImpacts).flatMap(([impact, { color }]) => [impact, mix(color, dark ? '#0c0c0c' : '#ffffff', 0.5)]),
+  dark ? '#333333' : '#cccccc'];
 const byImpact = (key, fallback) => ['match', ['get', 'impact'],
   ...Object.entries(eventImpacts).flatMap(([impact, style]) => [impact, style[key]]),
   fallback];
@@ -64,21 +73,35 @@ export const addLayers = (map, traffic, dark) => {
   map.addSource('cameras', { type: 'geojson', data: EMPTY });
   map.addSource('signs', { type: 'geojson', data: EMPTY });
   map.addSource('matched', { type: 'geojson', data: EMPTY });
-  map.addSource('events', { type: 'geojson', data: EMPTY }); // Event geometry: points and lines
+  map.addSource('event-roads', { type: 'geojson', data: EMPTY }); // Road segments events run along
+  map.addSource('event-fallback', { type: 'geojson', data: EMPTY }); // Events with no road to snap to
   map.addSource('event-icons', { type: 'geojson', data: EMPTY }); // One point per event, for its icon
   Object.entries(eventImpacts).forEach(([impact, style]) => map.addImage(eventIconId(impact), eventIcon(style), { pixelRatio: 2 }));
-  // Events along a stretch of road (roadworks, closures): a translucent band, under the traffic lines
+  // Events along a stretch of road (roadworks, closures), under the traffic lines: where they've
+  // been matched to the real road (utils/snapEvents), a band along it, and otherwise along NZTA's
+  // own line, smoothed. Opaque tints rather than translucency: overlapping pieces (each vertex's
+  // round join, both directions of a road) would otherwise darken, tracking vertex density.
+  const eventTint = byImpactTint(dark);
+  map.addLayer({
+    id: 'event-roads',
+    type: 'line',
+    source: 'event-roads',
+    minzoom: 8,
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': eventTint,
+      'line-width': ['interpolate', ['linear'], ['zoom'], 8, 6, 12, 12, 16, 24],
+    },
+  });
   map.addLayer({
     id: 'event-areas',
     type: 'line',
-    source: 'events',
+    source: 'event-fallback',
     minzoom: 8,
-    filter: ['in', ['geometry-type'], ['literal', ['LineString', 'MultiLineString']]],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
-      'line-color': byImpact('color', '#888'),
-      'line-width': ['interpolate', ['linear'], ['zoom'], 8, 4, 14, 14],
-      'line-opacity': 0.3,
+      'line-color': eventTint,
+      'line-width': ['interpolate', ['linear'], ['zoom'], 8, 4, 12, 8, 16, 16],
     },
   });
   if (traffic) {

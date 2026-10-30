@@ -47,10 +47,11 @@ const getCameras = memo(60_000, async () => {
   return data.response.camera.map(normaliseCamera);
 });
 
-// Road events: crashes, closures, roadworks, hazards. Only those in effect now; the zoom level
-// sets the detail of their geometry, and 12 is plenty for a city view.
+// Road events: crashes, closures, roadworks, hazards. Only those in effect now. The zoom level
+// sets the detail of their geometry: at 18, stretches of road follow its bends far better than
+// at lower levels (2-4 times the points), for about 30% more data from NZTA.
 const getEvents = memo(2 * 60_000, async () => {
-  const data = await fetchJson(`${TRAFFICNZ_API}/events/all/12`, { headers: { Accept: 'application/json' } });
+  const data = await fetchJson(`${TRAFFICNZ_API}/events/all/18`, { headers: { Accept: 'application/json' } });
   return [data.response.roadevent ?? []].flat()
     .filter(event => event.status === 'Active')
     .map(normaliseEvent)

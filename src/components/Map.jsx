@@ -16,8 +16,9 @@ import {
 } from '../map/layers';
 import { TRAFFIC_REFRESH } from '../consts';
 import {
-  cameraCongestion, drawSignPage, filterCamerasByBbox, groupCameraSites, signPages, signSize,
+  cameraCongestion, drawSignPage, filterCamerasByBbox, groupCameraSites, signPages, signSize, snapEvents,
 } from '../utils';
+import { lines } from '../utils/geometry';
 
 // maplibre-gl 6 looks for its worker next to its own module, which isn't there once
 // Vite has pre-bundled (dev) or bundled (build) it; so point it at the real file
@@ -81,6 +82,7 @@ export default function Map({
   // in between mustn't count as the user's view
   const restoreView = useRef(null);
   const reportBoundsRef = useRef(null);
+  const snapEventsRef = useRef(() => {}); // Re-matches road events to roads (set up with the map)
   const [hovered, setHovered] = useState(null); // { cameras, lngLat }: the site under the pointer
   const hoverKey = useRef(null);
   const [hoveredEvent, setHoveredEvent] = useState(null); // The road event under the pointer
@@ -132,14 +134,36 @@ export default function Map({
       const features = map.querySourceFeatures('traffic', { sourceLayer: 'traffic' });
       onCongestionRef.current(cameraCongestion(inView, features), inView.map(camera => camera.id));
     };
+    // Likewise, draw the road events in view on the roads they run along (utils/snapEvents)
+    let snapNeeded = true;
+    const snapEventRoads = () => {
+      if (!snapNeeded || !map.getSource('event-roads')) return;
+      snapNeeded = false;
+      const bounds = map.getBounds();
+      const inView = eventsRef.current.filter(event => event.geometry.type !== 'Point'
+        && lines(event.geometry).some(line => line.some(point => bounds.contains(point))));
+      const roads = traffic && map.getSource('traffic') ? map.querySourceFeatures('traffic', { sourceLayer: 'traffic' }) : [];
+      const { snapped, fallback } = snapEvents(inView, roads);
+      map.getSource('event-roads').setData({ type: 'FeatureCollection', features: snapped });
+      map.getSource('event-fallback').setData({ type: 'FeatureCollection', features: fallback });
+    };
+    snapEventsRef.current = () => { snapNeeded = true; if (map.loaded()) snapEventRoads(); };
     map.on('load', () => {
       addLayers(map, traffic, dark);
       setLoaded(true);
       reportBounds();
     });
-    map.on('moveend', () => { matchNeeded = true; reportBounds(); });
-    map.on('sourcedata', (e) => { if (e.sourceId === 'traffic' && e.tile) matchNeeded = true; });
-    map.on('idle', matchCongestion);
+    map.on('moveend', () => { matchNeeded = true; snapNeeded = true; reportBounds(); });
+    map.on('sourcedata', (e) => {
+      if (e.sourceId === 'traffic' && e.tile) {
+        matchNeeded = true;
+        snapNeeded = true;
+      }
+    });
+    map.on('idle', () => {
+      matchCongestion();
+      snapEventRoads();
+    });
 
     // Hovering a site shows its cameras' recent footage, and which traffic segments its
     // congestion came from. mousemove rather than mouseenter, to catch moving straight
@@ -246,16 +270,11 @@ export default function Map({
     if (map.getLayer('traffic')) map.setPaintProperty('traffic', 'line-opacity', layers.traffic ? trafficOpacity : 0);
   }, [loaded, layers]);
 
-  // Road events: their geometry (points, and lines for stretches of road), and a point each for the icon
+  // Road events: a point each for the icon, and their stretches of road matched to the roads
   useEffect(() => {
     if (!loaded) return;
-    const map = mapRef.current;
-    const properties = ({ id, impact }) => ({ id, impact });
-    map.getSource('events').setData({
-      type: 'FeatureCollection',
-      features: events.map(event => ({ type: 'Feature', geometry: event.geometry, properties: properties(event) })),
-    });
-    map.getSource('event-icons').setData(toGeojson(events.map(event => ({ lat: event.lat, lon: event.lon, ...properties(event) }))));
+    mapRef.current.getSource('event-icons').setData(toGeojson(events.map(({ id, impact, lat, lon }) => ({ id, impact, lat, lon }))));
+    snapEventsRef.current();
   }, [loaded, events]);
 
   useEffect(() => {
