@@ -4,6 +4,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
+import { alpha } from '@mui/material/styles';
 
 import CongestionLegend from './CongestionLegend';
 import EventPopup from './EventPopup';
@@ -48,8 +49,20 @@ const toGeojson = items => ({
   })),
 });
 
+// MapLibre's own controls are light; on the dark theme, give them its colours
+const mapControlsDark = {
+  '& .maplibregl-ctrl-group': { bgcolor: 'background.paper' },
+  '& .maplibregl-ctrl-group button + button': { borderTopColor: 'divider' },
+  '& .maplibregl-ctrl-icon': { filter: 'invert(1)' },
+  '& .maplibregl-ctrl-scale': {
+    bgcolor: theme => alpha(theme.palette.background.paper, 0.8), color: 'text.secondary', borderColor: 'text.secondary',
+  },
+  '& .maplibregl-ctrl-attrib': { bgcolor: theme => alpha(theme.palette.background.paper, 0.8), color: 'text.secondary' },
+  '& .maplibregl-ctrl-attrib a': { color: 'text.secondary' },
+};
+
 export default function Map({
-  styleUrl, traffic, cameras, signs, events, centre, congestion, isShown, minimised,
+  styleUrl, dark, traffic, cameras, signs, events, centre, congestion, isShown, minimised,
   layers, onBoundsChange, onSiteClick, onCongestion, onToggleMinimised, onLayersChange,
 }) {
   const container = useRef(null);
@@ -86,8 +99,10 @@ export default function Map({
     const map = new maplibregl.Map({
       container: container.current,
       style: styleUrl,
-      center: DEFAULT_LOCATION,
-      zoom: DEFAULT_ZOOM,
+      // A new style (e.g. switching to the dark theme) rebuilds the map: keep the view
+      ...(expandedView.current
+        ? (({ center, zoom, bearing, pitch }) => ({ center, zoom, bearing, pitch }))(expandedView.current)
+        : { center: DEFAULT_LOCATION, zoom: DEFAULT_ZOOM }),
       attributionControl: false, // Added below, so it can be left off when minimised
     });
     mapRef.current = map;
@@ -118,7 +133,7 @@ export default function Map({
       onCongestionRef.current(cameraCongestion(inView, features), inView.map(camera => camera.id));
     };
     map.on('load', () => {
-      addLayers(map, traffic);
+      addLayers(map, traffic, dark);
       setLoaded(true);
       reportBounds();
     });
@@ -190,7 +205,7 @@ export default function Map({
       mapRef.current = null;
       map.remove();
     };
-  }, [styleUrl, traffic, onBoundsChangeRef, onSiteClickRef, onCongestionRef, camerasRef, eventsRef, congestionRef, minimisedRef]);
+  }, [styleUrl, dark, traffic, onBoundsChangeRef, onSiteClickRef, onCongestionRef, camerasRef, eventsRef, congestionRef, minimisedRef]);
 
   // Minimised: show the same area in the smaller box, and stop all interaction.
   // Runs after React has resized the container, so the map can measure its new size.
@@ -296,6 +311,7 @@ export default function Map({
         height: minimised ? '100%' : 'auto',
         // The zoom controls go too: nothing on a minimised map responds
         '& .maplibregl-ctrl-top-right': { display: minimised ? 'none' : 'block' },
+        ...(dark && mapControlsDark),
       }}
     >
       {!minimised && (

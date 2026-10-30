@@ -1,9 +1,11 @@
 import MuiAppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 
 import ToggleButton from './ToggleButton';
+import { THEME_SETTINGS } from '../theme';
 import useNow from '../hooks/useNow';
 import { version } from '../../package.json';
 
@@ -25,7 +27,9 @@ const CONGESTION_FILTERS = [
 ];
 
 // congestionFilter is null when traffic data isn't available
-export default function AppBar({ loopAll, onToggleLoopAll, congestionFilter, onCongestionFilter }) {
+export default function AppBar({
+  loopAll, onToggleLoopAll, congestionFilter, onCongestionFilter, themeSetting, mode, onThemeSetting,
+}) {
   const now = useNow(1000);
   return (
     <MuiAppBar position="static" color="default">
@@ -48,6 +52,15 @@ export default function AppBar({ loopAll, onToggleLoopAll, congestionFilter, onC
             </Box>
           )}
           <ToggleButton on={loopAll} onClick={onToggleLoopAll} offVariant="outlined">Loop all</ToggleButton>
+          {/* Cycles Auto (follow the system), Light and Dark */}
+          <Button
+            size="small"
+            variant="outlined"
+            title="Colour theme: Auto follows your system's light or dark setting"
+            onClick={() => onThemeSetting(THEME_SETTINGS[(THEME_SETTINGS.indexOf(themeSetting) + 1) % THEME_SETTINGS.length])}
+          >
+            {themeSetting === 'auto' ? `Auto (${mode})` : themeSetting}
+          </Button>
           <Typography variant="subtitle1" color="secondary">
             v{version}
           </Typography>

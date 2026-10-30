@@ -6,7 +6,7 @@ import { CameraTime } from './Camera';
 import CameraPlaceholder from './CameraPlaceholder';
 import FadeImage from './FadeImage';
 import { useLoopFrames, useLoopPlayback } from '../hooks/useLoop';
-import { BLACK, descriptionReplace } from '../consts';
+import { descriptionReplace } from '../consts';
 import { replaceAll } from '../utils';
 
 export const PREVIEW_WIDTH = 200; // px
@@ -23,7 +23,7 @@ export default function CameraPreview({ camera }) {
   const src = shown?.frame.url ?? liveSrc;
   return (
     <Box sx={{ width: PREVIEW_WIDTH }}>
-      <Box sx={{ position: 'relative', aspectRatio: '4 / 3', bgcolor: 'grey.200', borderRadius: 0.5, overflow: 'hidden' }}>
+      <Box sx={{ position: 'relative', aspectRatio: '4 / 3', bgcolor: 'action.hover', borderRadius: 0.5, overflow: 'hidden' }}>
         {unavailable
           ? <CameraPlaceholder title={offline ? 'Camera offline' : underMaintenance ? 'Under maintenance' : 'Camera unavailable'} />
           : <FadeImage src={src} alt={name} fade={!shown || shown.fade} />}
@@ -37,7 +37,7 @@ export default function CameraPreview({ camera }) {
       <Typography
         variant="caption"
         component="div"
-        sx={{ color: BLACK, mt: 0.25, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+        sx={{ color: 'text.primary', mt: 0.25, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
       >
         {replaceAll(description, descriptionReplace) || name}
       </Typography>

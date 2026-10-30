@@ -69,6 +69,7 @@ app.get('/api/config', (req, res) => {
     weather: !!process.env.OPENWEATHERMAP_APIKEY,
     traffic: !!process.env.MAPBOX_TOKEN,
     mapStyle: process.env.MAP_STYLE || 'https://tiles.openfreemap.org/styles/liberty',
+    mapStyleDark: process.env.MAP_STYLE_DARK || 'https://tiles.openfreemap.org/styles/dark',
   });
 });
 

@@ -1,7 +1,7 @@
+import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
 import { getWeatherIcon } from '../utils';
-import { LIGHTBLACK } from '../consts';
 
 const WIND_THRESHOLD = 20; // km/h
 const COLD_TEMP = 3;
@@ -27,16 +27,16 @@ export default function CameraWeather({ data: wx }) {
   const windSpeed = wx.wind?.speed * 3.6;
   const windy = windSpeed > WIND_THRESHOLD;
   const temp = wx.main?.temp;
-  const temperatureColor = temp <= COLD_TEMP ? 'blue' : temp >= HOT_TEMP ? 'orangered' : LIGHTBLACK;
+  const temperatureColor = temp <= COLD_TEMP ? 'info.main' : temp >= HOT_TEMP ? 'error.main' : 'inherit';
   return (
-    <Typography variant="body2" component="div" sx={{ color: LIGHTBLACK, mt: 1 }}>
+    <Typography variant="body2" component="div" sx={{ color: 'text.secondary', mt: 1 }}>
       {wx.weather.map(weather => (
         <i key={weather.id} className={getWeatherIcon(weather.id, nightTime)} title={weather.description} />
       ))}
       <i style={{ paddingRight: 4 }} className={`wi ${nightTime ? 'wi-sunrise' : 'wi-sunset'}`} title={nightTime ? 'sunrise' : 'sunset'} />
       {timeFormat.format(sunChange * 1000)}
       {temp != null && (
-        <span className="wi" style={{ font: 'inherit', color: temperatureColor }}>{Math.round(temp)}°C</span>
+        <Box component="span" className="wi" sx={{ font: 'inherit', color: temperatureColor }}>{Math.round(temp)}°C</Box>
       )}
       {windy && (
         <>

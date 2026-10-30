@@ -1,8 +1,6 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
-import { LIGHTBLACK } from '../consts';
-
 // Stands in for the camera image when there is none to show
 export default function CameraPlaceholder({ title, detail }) {
   return (
@@ -19,9 +17,9 @@ export default function CameraPlaceholder({ title, detail }) {
         gap: 0.5,
         p: 2,
         textAlign: 'center',
-        color: LIGHTBLACK,
-        bgcolor: 'grey.100',
-        backgroundImage: 'repeating-linear-gradient(-45deg, transparent 0 12px, rgba(0,0,0,0.035) 12px 24px)',
+        color: 'text.secondary',
+        bgcolor: 'action.hover',
+        backgroundImage: 'repeating-linear-gradient(-45deg, transparent 0 12px, rgba(128,128,128,0.08) 12px 24px)',
       }}
     >
       <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>{title}</Typography>

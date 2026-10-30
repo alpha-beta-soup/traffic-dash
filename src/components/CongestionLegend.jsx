@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
+import { alpha } from '@mui/material/styles';
 
-import { BLACK, congestionEnum } from '../consts';
+import { congestionEnum } from '../consts';
 import { BASE_WIDTH } from '../map/layers';
 
 // Names each congestion level, drawn as it appears on the map (at the zoom-12 base width)
@@ -12,8 +13,8 @@ export default function CongestionLegend() {
       aria-label="Congestion key"
       sx={{
         position: 'absolute', left: 10, bottom: 26, zIndex: 1, m: 0, px: 1, py: 0.5,
-        listStyle: 'none', bgcolor: 'rgba(255,255,255,0.9)', borderRadius: 1, boxShadow: 1,
-        fontSize: '0.75rem', color: BLACK,
+        listStyle: 'none', bgcolor: theme => alpha(theme.palette.background.paper, 0.9), borderRadius: 1, boxShadow: 1,
+        fontSize: '0.75rem', color: 'text.primary',
       }}
     >
       {levels.map(({ description, color, width }) => {

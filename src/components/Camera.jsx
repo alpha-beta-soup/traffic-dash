@@ -8,6 +8,7 @@ import CardMedia from '@mui/material/CardMedia';
 import Chip from '@mui/material/Chip';
 import Snackbar from '@mui/material/Snackbar';
 import Typography from '@mui/material/Typography';
+import { alpha } from '@mui/material/styles';
 
 import CameraPlaceholder from './CameraPlaceholder';
 import CameraWeather from './CameraWeather';
@@ -16,8 +17,6 @@ import ToggleButton from './ToggleButton';
 import useNow from '../hooks/useNow';
 import { useLoopFrames, useLoopPlayback } from '../hooks/useLoop';
 import {
-  BLACK,
-  LIGHTBLACK,
   MAX_REFRESH,
   MIN_REFRESH,
   descriptionReplace,
@@ -32,7 +31,7 @@ import {
 import loadingImage from '../../data/hatchback_loading.gif';
 
 const overlayChip = {
-  bgcolor: 'rgba(255,255,255,0.8)',
+  bgcolor: theme => alpha(theme.palette.background.paper, 0.85),
   fontSize: '0.7rem',
   height: 20,
 };
@@ -158,6 +157,8 @@ export default function Camera({
             height: 'calc(25.5vh + 8px)',
             borderBottom: '8px solid',
             borderColor: congestion?.color ?? 'transparent',
+            // The loading animation is black on white: inverted, it suits the dark theme
+            '& img[src*="hatchback_loading"]': { filter: theme => (theme.palette.mode === 'dark' ? 'invert(0.9)' : 'none') },
           }}
         >
           {placeholder
@@ -171,10 +172,10 @@ export default function Camera({
         {nearbyEvents.length > 0 && <NearbyEvent events={nearbyEvents} />}
       </Box>
       <CardContent sx={{ flexGrow: 1 }}>
-        <Typography variant="h6" sx={{ color: BLACK, lineHeight: 1.2 }}>
+        <Typography variant="h6" sx={{ color: 'text.primary', lineHeight: 1.2 }}>
           {name}
         </Typography>
-        <Typography variant="body2" sx={{ color: LIGHTBLACK }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           {replaceAll(description, descriptionReplace)}
         </Typography>
         <CameraWeather data={weather} />

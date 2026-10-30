@@ -44,7 +44,13 @@ const SIGN_FULL_ZOOM = 14; // Signs show in full from here; below it, as icons t
 export const signImageId = (pages, size, page) => `sign:${size.columns}x${size.rows}:${pages[page].map(({ left, right }) => `${left}>${right}`).join('|')}`;
 export const signIcon = tick => ['get', ['concat', 'page', ['to-string', ['%', tick, ['get', 'pages']]]]];
 
-const DIMMED_LABEL = '#8a96a3';
+// Camera labels: dark on a white halo on the light map, and the reverse on the dark one.
+// Sites the congestion filter leaves out get dimmer text rather than transparency, which would
+// fade the halo too and blur the label into the map.
+const LABELS = {
+  light: { text: BLACK, halo: 'white', dimmed: '#8a96a3' },
+  dark: { text: '#e3eaf1', halo: '#0e1317', dimmed: '#6b7785' },
+};
 
 export const EVENT_LAYERS = ['event-areas', 'events'];
 const eventIconId = impact => `event-${impact}`;
@@ -52,7 +58,8 @@ const byImpact = (key, fallback) => ['match', ['get', 'impact'],
   ...Object.entries(eventImpacts).flatMap(([impact, style]) => [impact, style[key]]),
   fallback];
 
-export const addLayers = (map, traffic) => {
+export const addLayers = (map, traffic, dark) => {
+  const labels = LABELS[dark ? 'dark' : 'light'];
   SITE_ICONS.forEach(icon => map.addImage(icon, siteIcon(icon.replace('site-', '')), { pixelRatio: 2 }));
   map.addSource('cameras', { type: 'geojson', data: EMPTY });
   map.addSource('signs', { type: 'geojson', data: EMPTY });
@@ -137,11 +144,8 @@ export const addLayers = (map, traffic) => {
     },
     paint: {
       'icon-opacity': ['case', ['get', 'dim'], 0.3, 1],
-      // Dark on a white halo: reads cleanly on a light base map, and matches the cards.
-      // Sites the congestion filter leaves out get grey text rather than transparency,
-      // which would fade the halo too and blur the label into the map.
-      'text-color': ['case', ['get', 'dim'], DIMMED_LABEL, BLACK],
-      'text-halo-color': 'white',
+      'text-color': ['case', ['get', 'dim'], labels.dimmed, labels.text],
+      'text-halo-color': labels.halo,
       'text-halo-width': 1.6,
     },
   });

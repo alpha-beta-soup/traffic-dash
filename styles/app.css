@@ -5,7 +5,7 @@ body {
 
 .wi {
   font-size: 120%;
-  color: #485d6f;
+  color: inherit; /* Follows the text colour, in light and dark themes */
 }
 
 .wi + .wi {

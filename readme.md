@@ -25,6 +25,7 @@ All keys are optional. Without them you still get cameras and variable message s
 | `OPENWEATHERMAP_APIKEY` | OpenWeatherMap API key: weather and sunrise/sunset per camera (free tier OK) | |
 | `MAPBOX_TOKEN` | Mapbox token: live traffic lines on the map, per-camera congestion and the congestion filter, from Mapbox Traffic v1 vector tiles (proxied and cached by the server; free tier OK) | |
 | `MAP_STYLE` | Base map style URL | OpenFreeMap Liberty (no key) |
+| `MAP_STYLE_DARK` | Base map style URL for the dark theme | OpenFreeMap Dark (no key) |
 | `PORT` | Server port | 3000 |
 | `CACHE_ENABLED` | Cache camera frames to `cache/` for animation | true |
 | `CACHE_MAX_AGE_HOURS` | Frames older than this are pruned | 6 |
@@ -42,8 +43,10 @@ Occasionally a file change isn't picked up by the dev server (`node --watch` for
 - **Message signs:** small icons that expand into the sign on hover; shown in full from zoom 14.
 - **Layers** (on the map): camera labels, message signs and congestion lines on or off.
 - **Minimise:** shrinks the map to a card, keeping the area in view.
+- **Theme** (top bar): Auto follows your system's light or dark setting; or pick Light or Dark.
+- **Road events:** crashes, closures, roadworks and hazards, as NZ-road-sign-style icons; hover one for details. Cameras within 500m of a closure or delay are flagged on their cards.
 
-Settings (pins, filter, layers, looping) are remembered in the browser.
+Settings (pins, filter, layers, looping, theme) are remembered in the browser.
 
 ## How it works
 

@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
+import CssBaseline from '@mui/material/CssBaseline';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { ThemeProvider } from '@mui/material/styles';
 
 import AppBar from './components/AppBar';
 import Camera from './components/Camera';
@@ -11,6 +14,7 @@ import TrafficMap from './components/Map';
 import useStoredSetting from './hooks/useStoredSetting';
 import { MAX_CAMERAS_IN_VIEW, congestionEnum } from './consts';
 import { fetchJson, filterCamerasByBbox, nearbyEvents } from './utils';
+import { makeTheme } from './theme';
 
 const SIGNS_REFRESH = 60000;
 const EVENTS_REFRESH = 2 * 60_000; // The server reuses the feed for 2 minutes
@@ -36,6 +40,11 @@ export default function App() {
   const [congestionFilter, setCongestionFilter] = useStoredSetting('congestion-filter', 'all');
   const [centre, setCentre] = useState(null);
   const [mapMinimised, setMapMinimised] = useState(false);
+  // 'auto' follows the system's light or dark setting
+  const [themeSetting, setThemeSetting] = useStoredSetting('theme', 'auto');
+  const systemDark = useMediaQuery('(prefers-color-scheme: dark)');
+  const mode = themeSetting === 'auto' ? (systemDark ? 'dark' : 'light') : themeSetting;
+  const theme = useMemo(() => makeTheme(mode), [mode]);
   const [error, setError] = useState(null);
 
   // Keeps the current list when nothing changed, so a refresh doesn't redraw the map and cards.
@@ -125,12 +134,16 @@ export default function App() {
   const shown = [...pinnedCameras, ...(tooMany ? [] : [...working, ...notWorking])];
 
   return (
-    <>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
       <AppBar
         loopAll={loopAll}
         onToggleLoopAll={() => setLoopAll(on => !on)}
         congestionFilter={config?.traffic ? congestionFilter : null}
         onCongestionFilter={setCongestionFilter}
+        themeSetting={themeSetting}
+        mode={mode}
+        onThemeSetting={setThemeSetting}
       />
       <Box sx={{ p: 1 }}>
         <Grid container spacing={1}>
@@ -138,7 +151,8 @@ export default function App() {
           <Grid size={mapMinimised ? CARD_SIZE : 12}>
             {config && (
               <TrafficMap
-                styleUrl={config.mapStyle}
+                styleUrl={mode === 'dark' ? config.mapStyleDark : config.mapStyle}
+                dark={mode === 'dark'}
                 traffic={config.traffic}
                 cameras={cameras}
                 signs={signs}
@@ -186,6 +200,6 @@ export default function App() {
         onAction={loadCameras}
         onClose={() => setError(null)}
       />
-    </>
+    </ThemeProvider>
   );
 }
