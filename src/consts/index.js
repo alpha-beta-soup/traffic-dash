@@ -16,5 +16,6 @@ export const MAX_CAMERAS_IN_VIEW = 10;
 export const TRAFFIC_REFRESH = 5 * 60_000; // ms; Mapbox updates traffic roughly this often
 
 // Randomised per camera, so they don't all hit the server at once
-export const MIN_REFRESH = Number(import.meta.env.VITE_MIN_REFRESH) || 10000;
-export const MAX_REFRESH = Number(import.meta.env.VITE_MAX_REFRESH) || 25000;
+// (import.meta.env is only set under Vite; the tests run these modules in plain Node)
+export const MIN_REFRESH = Number(import.meta.env?.VITE_MIN_REFRESH) || 10000;
+export const MAX_REFRESH = Number(import.meta.env?.VITE_MAX_REFRESH) || 25000;
