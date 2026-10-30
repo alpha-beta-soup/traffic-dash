@@ -1,7 +1,4 @@
 node_modules
-out
-.eslintcache
+dist
 .env
 cache
-compileCache*/
-electron-forge/

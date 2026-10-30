@@ -1,0 +1,13 @@
+body {
+  margin: 0;
+  overflow-y: scroll;
+}
+
+.wi {
+  font-size: 120%;
+  color: #485d6f;
+}
+
+.wi + .wi {
+  margin-left: 15px;
+}

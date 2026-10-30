@@ -1,0 +1,33 @@
+import js from '@eslint/js';
+import globals from 'globals';
+import react from 'eslint-plugin-react';
+import reactHooks from 'eslint-plugin-react-hooks';
+
+export default [
+  { ignores: ['dist', 'cache', 'node_modules'] },
+  js.configs.recommended,
+  {
+    files: ['src/**/*.{js,jsx}'],
+    ...react.configs.flat.recommended,
+    ...react.configs.flat['jsx-runtime'],
+    languageOptions: {
+      ...react.configs.flat.recommended.languageOptions,
+      globals: globals.browser,
+    },
+    plugins: {
+      react,
+      'react-hooks': reactHooks,
+    },
+    settings: { react: { version: 'detect' } },
+    rules: {
+      ...react.configs.flat.recommended.rules,
+      ...react.configs.flat['jsx-runtime'].rules,
+      ...reactHooks.configs.recommended.rules,
+      'react/prop-types': 'off',
+    },
+  },
+  {
+    files: ['server/**/*.js', '*.config.js'],
+    languageOptions: { globals: globals.node },
+  },
+];
