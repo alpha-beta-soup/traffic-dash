@@ -2,6 +2,8 @@
 
 A dashboard for New Zealand traffic cameras, message signs and congestion.
 
+![The dashboard: a map of Wellington with camera sites, message signs and congestion, above live camera cards](docs/screenshot.jpg)
+
 A web app (React + MapLibre, built with Vite) with a small Node/Express server. The server proxies the NZTA traffic feeds, which can't be called from a browser because they send no CORS headers. It also keeps API keys out of the browser, shares upstream requests between viewers, and caches recent camera frames on disk so the cameras can be animated.
 
 ## Running
