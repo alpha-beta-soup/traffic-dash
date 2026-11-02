@@ -44,7 +44,7 @@ function LargeImage({ src, alt, stale }) {
           display: 'block',
           width: '100%',
           maxWidth: natural ? natural.width * MAX_UPSCALE : '100%',
-          maxHeight: '70vh',
+          maxHeight: 'min(70vh, 100vh - 160px)', // Room for the controls below it, when stuck in view
           objectFit: 'contain',
           // The previous camera's image, while this one's loads
           opacity: stale ? 0.4 : 1,
@@ -271,7 +271,8 @@ function CameraView({ camera, cameras, events, config, dark, congestion, pinned,
   return (
     <Box sx={{ p: { xs: 1, sm: 2 } }}>
       <Grid container spacing={2}>
-        <Grid size={{ xs: 12, md: 8 }}>
+        {/* Side by side, the image stays in view while the details beside it scroll */}
+        <Grid size={{ xs: 12, md: 8 }} sx={{ position: { md: 'sticky' }, top: { md: 16 }, alignSelf: 'flex-start' }}>
           {placeholder || !src ? (
             <Box sx={{ position: 'relative', aspectRatio: '16 / 9', borderRadius: 1, overflow: 'hidden' }}>
               <CameraPlaceholder {...(placeholder ?? { title: 'Loading…' })} />
