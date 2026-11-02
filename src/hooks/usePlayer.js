@@ -15,9 +15,16 @@ export function frameDelay(frames, index) {
 
 // Playback of a camera's cached frames (oldest first) that the viewer controls, for the camera
 // page. Modes: 'live' (the latest image, no frame), 'playing' (looping), 'paused' (on a frame).
-export default function usePlayer(frames) {
+// A new `resetKey` (e.g. another camera) goes back to live.
+export default function usePlayer(frames, resetKey) {
   const [mode, setMode] = useState('live');
   const [index, setIndex] = useState(0);
+  const [key, setKey] = useState(resetKey);
+  if (key !== resetKey) {
+    setKey(resetKey);
+    setMode('live');
+    setIndex(0);
+  }
   const count = frames.length;
   const current = Math.max(0, Math.min(index, count - 1)); // The history can shrink as frames expire
 

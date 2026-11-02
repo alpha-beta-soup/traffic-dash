@@ -7,6 +7,7 @@ import Slider from '@mui/material/Slider';
 import Snackbar from '@mui/material/Snackbar';
 import Typography from '@mui/material/Typography';
 
+import CameraMap from '../components/CameraMap';
 import CameraPlaceholder from '../components/CameraPlaceholder';
 import CameraWeather from '../components/CameraWeather';
 import EventDetails, { impactOf } from '../components/EventDetails';
@@ -30,7 +31,7 @@ const clockFormat = new Intl.DateTimeFormat('en-NZ', {
 });
 
 // The camera's whole frame, uncropped, as large as fits, up to MAX_UPSCALE its own size
-function LargeImage({ src, alt }) {
+function LargeImage({ src, alt, stale }) {
   const [natural, setNatural] = useState(null);
   return (
     <Box sx={{ bgcolor: 'common.black', display: 'flex', justifyContent: 'center', borderRadius: 1, overflow: 'hidden' }}>
@@ -45,6 +46,9 @@ function LargeImage({ src, alt }) {
           maxWidth: natural ? natural.width * MAX_UPSCALE : '100%',
           maxHeight: '70vh',
           objectFit: 'contain',
+          // The previous camera's image, while this one's loads
+          opacity: stale ? 0.4 : 1,
+          transition: 'opacity 0.2s',
         }}
       />
     </Box>
@@ -185,7 +189,7 @@ function GettingAround({ camera, cameras }) {
   );
 }
 
-export default function CameraPage({ id, cameras, events, config, congestion, pinned, onPin }) {
+export default function CameraPage({ id, cameras, events, config, dark, congestion, pinned, onPin }) {
   const camera = cameras.find(c => c.id === id);
   useEffect(() => {
     document.title = camera ? `${camera.name} · NZ Traffic Dashboard` : 'NZ Traffic Dashboard';
@@ -202,12 +206,14 @@ export default function CameraPage({ id, cameras, events, config, congestion, pi
     );
   }
   return (
+    // Not keyed by camera: moving to another camera updates the page in place (the map pans,
+    // the last image stays until the next arrives) rather than rebuilding it
     <CameraView
-      key={camera.id}
       camera={camera}
       cameras={cameras}
       events={events}
       config={config}
+      dark={dark}
       congestion={congestion}
       pinned={pinned}
       onPin={onPin}
@@ -215,13 +221,13 @@ export default function CameraPage({ id, cameras, events, config, congestion, pi
   );
 }
 
-function CameraView({ camera, cameras, events, config, congestion, pinned, onPin }) {
+function CameraView({ camera, cameras, events, config, dark, congestion, pinned, onPin }) {
   const { id, name, description, direction, highway, region, lat, lon, imageUrl, offline, underMaintenance } = camera;
   const unavailable = offline || underMaintenance;
   const { live, failed, stockImage } = useLiveImage(camera, unavailable);
   const liveTime = live?.time.getTime();
   const frames = useLoopFrames(id, !unavailable && !!liveTime, liveTime);
-  const player = usePlayer(frames);
+  const player = usePlayer(frames, id);
   const weather = useWeather(config.weather, lat, lon);
   const [notice, setNotice] = useState(null);
   const nearby = nearbyEvents(camera, events, { radius: NEARBY, impacts: Object.keys(eventImpacts) });
@@ -257,9 +263,10 @@ function CameraView({ camera, cameras, events, config, congestion, pinned, onPin
   if (offline) placeholder = { title: 'Camera offline', detail: 'NZTA has marked this camera offline' };
   else if (underMaintenance) placeholder = { title: 'Under maintenance', detail: 'NZTA has marked this camera under maintenance' };
   else if (stockImage) placeholder = { title: 'Camera unavailable', detail: 'NZTA is showing its "temporarily unavailable" image. Checking again shortly.' };
-  else if (failed && !live) placeholder = { title: 'Image unavailable', detail: 'Retrying…' };
+  else if (failed && live?.id !== id) placeholder = { title: 'Image unavailable', detail: 'Retrying…' };
+  const stale = !player.frame && live?.id !== id; // Still the previous camera's image
   const src = player.frame?.url ?? live?.src;
-  const time = player.frame ? new Date(player.frame.time) : live?.time;
+  const time = player.frame ? new Date(player.frame.time) : !stale && live?.time;
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2 } }}>
@@ -271,7 +278,7 @@ function CameraView({ camera, cameras, events, config, congestion, pinned, onPin
             </Box>
           ) : (
             <>
-              <LargeImage src={src} alt={name} />
+              <LargeImage src={src} alt={name} stale={stale} />
               <PlaybackControls player={player} frames={frames} time={time} />
             </>
           )}
@@ -298,6 +305,16 @@ function CameraView({ camera, cameras, events, config, congestion, pinned, onPin
               <Button size="small" href={imageUrl} target="_blank" rel="noopener">NZTA image</Button>
             </Box>
           </Paper>
+          {config.mapStyle && (
+            <CameraMap
+              camera={camera}
+              cameras={cameras}
+              events={events}
+              styleUrl={dark ? config.mapStyleDark : config.mapStyle}
+              dark={dark}
+              traffic={config.traffic}
+            />
+          )}
           <GettingAround camera={camera} cameras={cameras} />
           {nearby.map(event => (
             <Paper key={event.id} sx={{ p: 1.5, mt: 2, borderTop: `4px solid ${impactOf(event).color}` }}>

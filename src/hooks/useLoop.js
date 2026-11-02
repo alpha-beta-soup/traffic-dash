@@ -7,6 +7,11 @@ import { fetchJson, loopFrame } from '../utils';
 // (e.g. when a new live frame arrives, which the server will have cached)
 export function useLoopFrames(id, enabled, refreshKey) {
   const [frames, setFrames] = useState([]);
+  const [framesId, setFramesId] = useState(id);
+  if (framesId !== id) { // Another camera: none of these frames are its
+    setFramesId(id);
+    setFrames([]);
+  }
   useEffect(() => {
     if (!enabled) return;
     fetchJson(`/api/cameras/${id}/history`)

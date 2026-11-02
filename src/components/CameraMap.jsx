@@ -1,0 +1,112 @@
+import { useEffect, useRef, useState } from 'react';
+import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
+
+import useLatest from '../hooks/useLatest';
+import { addLayers } from '../map/layers';
+import maplibregl, { mapControlsDark } from '../map/maplibre';
+import { cameraPath, navigate } from '../router';
+import { groupCameraSites } from '../utils';
+
+const ZOOM = 13;
+const NZTA_ATTRIBUTION = 'Cameras: <a href="https://www.journeys.nzta.govt.nz/" target="_blank" rel="noopener">Waka Kotahi NZ Transport Agency</a>';
+const RING = { light: '#1976d2', dark: '#90caf9' };
+
+const point = ([lon, lat], properties = {}) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties });
+const collection = features => ({ type: 'FeatureCollection', features });
+const siteIdsOf = site => String(site.cameraIds).split(',').map(Number);
+
+// A small map around a camera on its page: the traffic, road events and the other camera sites
+// nearby, with this camera's site ringed. Clicking another site goes to its camera, preferring
+// the one facing the same way as this one.
+export default function CameraMap({ camera, cameras, events, styleUrl, dark, traffic }) {
+  const container = useRef(null);
+  const mapRef = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+  const camerasRef = useLatest(cameras);
+  const cameraRef = useLatest(camera);
+  const centre = [camera.lon, camera.lat];
+  const centreRef = useLatest(centre);
+
+  useEffect(() => {
+    const map = new maplibregl.Map({
+      container: container.current,
+      style: styleUrl,
+      center: centreRef.current,
+      zoom: ZOOM,
+      attributionControl: false,
+      // A wheel over the map scrolls the page; the buttons zoom
+      scrollZoom: false,
+      dragRotate: false,
+      pitchWithRotate: false,
+    });
+    mapRef.current = map;
+    map.touchZoomRotate.disableRotation();
+    map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: NZTA_ATTRIBUTION }));
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    map.addControl(new maplibregl.ScaleControl(), 'bottom-left');
+    map.on('load', () => {
+      // Compact credits start open; on a map this small, start them folded to their ⓘ button
+      container.current?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
+      addLayers(map, traffic, dark);
+      map.addSource('current', { type: 'geojson', data: collection([]) });
+      map.addLayer({
+        id: 'current',
+        type: 'circle',
+        source: 'current',
+        paint: {
+          'circle-radius': 15,
+          'circle-color': 'transparent',
+          'circle-stroke-color': RING[dark ? 'dark' : 'light'],
+          'circle-stroke-width': 3,
+        },
+      }, 'cameras');
+      setLoaded(true);
+    });
+
+    const siteAt = e => siteIdsOf(e.features[0].properties);
+    map.on('mouseenter', 'cameras', (e) => {
+      const ids = siteAt(e);
+      map.getCanvas().style.cursor = ids.includes(cameraRef.current.id) ? '' : 'pointer';
+    });
+    map.on('mouseleave', 'cameras', () => { map.getCanvas().style.cursor = ''; });
+    map.on('click', 'cameras', (e) => {
+      const ids = siteAt(e);
+      if (ids.includes(cameraRef.current.id)) return;
+      const site = camerasRef.current.filter(c => ids.includes(c.id));
+      const target = site.find(c => c.direction === cameraRef.current.direction) ?? site[0];
+      if (target) navigate(cameraPath(target.id));
+    });
+
+    return () => {
+      setLoaded(false);
+      mapRef.current = null;
+      map.remove();
+    };
+  }, [styleUrl, dark, traffic, centreRef, cameraRef, camerasRef]);
+
+  // Moving to another camera pans there, rather than starting a new map
+  useEffect(() => {
+    mapRef.current?.easeTo({ center: centreRef.current, duration: 800 });
+  }, [camera.lon, camera.lat, centreRef]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const sites = groupCameraSites(cameras);
+    const map = mapRef.current;
+    map.getSource('cameras').setData(collection(sites.map(({ lat, lon, ...site }) => point([lon, lat], site))));
+    const here = sites.find(site => siteIdsOf(site).includes(camera.id));
+    map.getSource('current').setData(collection(here ? [point([here.lon, here.lat])] : []));
+  }, [loaded, cameras, camera.id]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    mapRef.current.getSource('event-icons').setData(collection(events.map(({ id, impact, lat, lon }) => point([lon, lat], { id, impact }))));
+  }, [loaded, events]);
+
+  return (
+    <Paper sx={{ mt: 2, overflow: 'hidden', ...(dark && mapControlsDark) }}>
+      <Box ref={container} sx={{ width: '100%', height: 240 }} />
+    </Paper>
+  );
+}

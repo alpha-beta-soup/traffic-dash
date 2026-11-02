@@ -157,6 +157,7 @@ export default function App() {
           cameras={cameras}
           events={events}
           config={config ?? {}}
+          dark={mode === 'dark'}
           congestion={congestion.get(route.id)}
           pinned={pinned.includes(route.id)}
           onPin={togglePin}

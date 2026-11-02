@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import * as maplibregl from 'maplibre-gl';
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
-import { alpha } from '@mui/material/styles';
 
 import CongestionLegend from './CongestionLegend';
 import EventPopup from './EventPopup';
@@ -14,15 +11,12 @@ import useLatest from '../hooks/useLatest';
 import {
   EMPTY, EVENT_LAYERS, SIGN_LAYERS, SIGN_PAGE_TIME, addLayers, signIcon, signImageId, trafficOpacity, trafficTiles,
 } from '../map/layers';
+import maplibregl, { mapControlsDark } from '../map/maplibre';
 import { TRAFFIC_REFRESH } from '../consts';
 import {
   cameraCongestion, drawSignPage, filterCamerasByBbox, groupCameraSites, signPages, signSize, snapEvents,
 } from '../utils';
 import { lines } from '../utils/geometry';
-
-// maplibre-gl 6 looks for its worker next to its own module, which isn't there once
-// Vite has pre-bundled (dev) or bundled (build) it; so point it at the real file
-maplibregl.setWorkerUrl(workerUrl);
 
 const DEFAULT_LOCATION = [174.787, -41.272]; // Wellington
 const DEFAULT_ZOOM = 11;
@@ -49,18 +43,6 @@ const toGeojson = items => ({
     properties,
   })),
 });
-
-// MapLibre's own controls are light; on the dark theme, give them its colours
-const mapControlsDark = {
-  '& .maplibregl-ctrl-group': { bgcolor: 'background.paper' },
-  '& .maplibregl-ctrl-group button + button': { borderTopColor: 'divider' },
-  '& .maplibregl-ctrl-icon': { filter: 'invert(1)' },
-  '& .maplibregl-ctrl-scale': {
-    bgcolor: theme => alpha(theme.palette.background.paper, 0.8), color: 'text.secondary', borderColor: 'text.secondary',
-  },
-  '& .maplibregl-ctrl-attrib': { bgcolor: theme => alpha(theme.palette.background.paper, 0.8), color: 'text.secondary' },
-  '& .maplibregl-ctrl-attrib a': { color: 'text.secondary' },
-};
 
 export default function Map({
   styleUrl, dark, traffic, cameras, signs, events, centre, congestion, isShown, minimised,
