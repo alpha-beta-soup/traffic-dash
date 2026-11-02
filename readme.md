@@ -41,7 +41,7 @@ Occasionally a file change isn't picked up by the dev server (`node --watch` for
 
 - **Map:** camera sites are circles with a quarter per direction the site has a camera for: filled when working, grey when offline. Hover a site for its cameras' recent footage, and to highlight the road segments its congestion came from; click it to pin its cameras.
 - **Cards:** the cameras in view (up to 10 working ones, offline ones after) and any pinned cameras. Each loops the last 30 minutes, in sync with every other card. The coloured border is the congestion on the road the camera looks along.
-- **Camera pages:** click a card's image for the camera's own page (`/camera/<id>`): the whole frame at full size, playback you control (Live, play/pause, step, and a scrubber across the saved history; space and the arrow keys work too), and its details and nearby road events. Share copies the page's link; Back returns to the dashboard where you left it.
+- **Camera pages:** click a card's image for the camera's own page (`/camera/<id>`): the whole frame at full size, playback you control (Live, play/pause, step, and a scrubber across the saved history; space and the arrow keys work too), its details and nearby road events, and getting around: the site's other cameras, the next camera either way along the state highway, and every camera on the route. Share copies the page's link; Back returns to the dashboard where you left it.
 - **Congestion filter** (top bar): show only cameras at moderate or heavy congestion and worse.
 - **Message signs:** small icons that expand into the sign on hover; shown in full from zoom 14.
 - **Layers** (on the map): camera labels, message signs and congestion lines on or off.

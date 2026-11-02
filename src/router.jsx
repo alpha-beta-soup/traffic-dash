@@ -1,6 +1,7 @@
 // A very small router: the dashboard at /, and a page per camera at /camera/<id>. Uses the
 // browser's history, so Back, bookmarks and opening links in new tabs all work.
 import { useEffect, useState } from 'react';
+import MuiLink from '@mui/material/Link';
 
 const listeners = new Set();
 
@@ -38,3 +39,6 @@ export function Link({ to, onClick, ...props }) {
   };
   return <a href={to} onClick={handleClick} {...props} />;
 }
+
+// A Link styled as text, in the theme's link colours
+export const TextLink = props => <MuiLink component={Link} {...props} />;

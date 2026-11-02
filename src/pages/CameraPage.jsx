@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
@@ -16,9 +16,9 @@ import { useLoopFrames } from '../hooks/useLoop';
 import useNow from '../hooks/useNow';
 import usePlayer from '../hooks/usePlayer';
 import useWeather from '../hooks/useWeather';
-import { Link, cameraPath, navigate } from '../router';
+import { TextLink, cameraPath, navigate } from '../router';
 import { descriptionReplace, eventImpacts } from '../consts';
-import { nearbyEvents, replaceAll, timeAgo } from '../utils';
+import { groupCameraSites, nearbyEvents, replaceAll, timeAgo } from '../utils';
 
 const MAX_UPSCALE = 2; // Small cameras (480×270) only blur beyond about twice their size
 const NEARBY = 1000; // metres: road events listed on the page
@@ -90,6 +90,81 @@ function PlaybackControls({ player, frames, time }) {
   );
 }
 
+// The cameras at the same site (other directions), the nearest along the road either way, and
+// every camera on the route, in order. Routes come from NZTA's state highway "journeys" (see
+// server/routes.js), so cameras off the state highways have none.
+function GettingAround({ camera, cameras }) {
+  // The route list opens scrolled to this camera
+  const list = useRef(null);
+  useEffect(() => {
+    const current = list.current?.querySelector('[aria-current]');
+    // offsetTop is from the list itself (it's position: relative): centre the camera in it
+    if (current) list.current.scrollTop = current.offsetTop - (list.current.clientHeight - current.offsetHeight) / 2;
+  }, [camera.id]);
+  const site = groupCameraSites(cameras).find(s => s.cameraIds.split(',').map(Number).includes(camera.id));
+  const siteIds = site ? site.cameraIds.split(',').map(Number) : [camera.id];
+  const atSite = cameras.filter(c => siteIds.includes(c.id) && c.id !== camera.id);
+  const { route } = camera;
+  const onRoute = route ? cameras.filter(c => c.route?.id === route.id).sort((a, b) => a.route.km - b.route.km) : [];
+  const others = onRoute.filter(c => !siteIds.includes(c.id));
+  const before = others.filter(c => c.route.km <= route?.km).at(-1);
+  const after = others.find(c => c.route.km > route?.km);
+  const distance = other => `${Math.abs(other.route.km - route.km).toFixed(1)} km`;
+  if (!atSite.length && !onRoute.length) return null;
+  return (
+    <Paper sx={{ p: 2, mt: 2 }}>
+      <Typography variant="subtitle2" sx={{ color: 'text.secondary', mb: 0.5 }}>Getting around</Typography>
+      {atSite.length > 0 && (
+        <Typography variant="body2" component="div" sx={{ mb: 1 }}>
+          At this site:{' '}
+          {atSite.map((c, i) => (
+            <span key={c.id}>
+              {i > 0 && ', '}
+              <TextLink to={cameraPath(c.id)}>{c.direction?.replace('bound', '')}: {c.name}</TextLink>
+            </span>
+          ))}
+        </Typography>
+      )}
+      {before && (
+        <Typography variant="body2">
+          ← Towards {route.start}: <TextLink to={cameraPath(before.id)}>{before.name}</TextLink> · {distance(before)}
+        </Typography>
+      )}
+      {after && (
+        <Typography variant="body2">
+          Towards {route.end} →: <TextLink to={cameraPath(after.id)}>{after.name}</TextLink> · {distance(after)}
+        </Typography>
+      )}
+      {onRoute.length > 1 && (
+        <>
+          <Typography variant="subtitle2" sx={{ color: 'text.secondary', mt: 1.5 }}>
+            {route.name}, {route.start} to {route.end}
+          </Typography>
+          <Box component="ol" ref={list} sx={{ m: 0, pl: 0, listStyle: 'none', maxHeight: 260, overflowY: 'auto', position: 'relative' }}>
+            {onRoute.map((c) => {
+              const offline = c.offline || c.underMaintenance || c.unavailable;
+              return (
+                <Box
+                  component="li"
+                  key={c.id}
+                  aria-current={c.id === camera.id ? 'location' : undefined}
+                  sx={{
+                    display: 'flex', justifyContent: 'space-between', gap: 1, py: 0.25,
+                    fontSize: '0.85rem', opacity: offline ? 0.5 : 1, fontWeight: c.id === camera.id ? 600 : 400,
+                  }}
+                >
+                  {c.id === camera.id ? <span>{c.name}</span> : <TextLink to={cameraPath(c.id)}>{c.name}</TextLink>}
+                  <Box component="span" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>{c.route.km.toFixed(1)} km</Box>
+                </Box>
+              );
+            })}
+          </Box>
+        </>
+      )}
+    </Paper>
+  );
+}
+
 export default function CameraPage({ id, cameras, events, config, congestion, pinned, onPin }) {
   const camera = cameras.find(c => c.id === id);
   useEffect(() => {
@@ -102,7 +177,7 @@ export default function CameraPage({ id, cameras, events, config, congestion, pi
         <Typography variant="h6">
           {cameras.length ? `There's no camera ${id}.` : 'Loading…'}
         </Typography>
-        {cameras.length > 0 && <Link to="/">Back to the dashboard</Link>}
+        {cameras.length > 0 && <TextLink to="/">Back to the dashboard</TextLink>}
       </Box>
     );
   }
@@ -110,6 +185,7 @@ export default function CameraPage({ id, cameras, events, config, congestion, pi
     <CameraView
       key={camera.id}
       camera={camera}
+      cameras={cameras}
       events={events}
       config={config}
       congestion={congestion}
@@ -119,7 +195,7 @@ export default function CameraPage({ id, cameras, events, config, congestion, pi
   );
 }
 
-function CameraView({ camera, events, config, congestion, pinned, onPin }) {
+function CameraView({ camera, cameras, events, config, congestion, pinned, onPin }) {
   const { id, name, description, direction, highway, region, lat, lon, imageUrl, offline, underMaintenance } = camera;
   const unavailable = offline || underMaintenance;
   const { live, failed, stockImage } = useLiveImage(camera, unavailable);
@@ -202,13 +278,14 @@ function CameraView({ camera, events, config, congestion, pinned, onPin }) {
               <Button size="small" href={imageUrl} target="_blank" rel="noopener">NZTA image</Button>
             </Box>
           </Paper>
+          <GettingAround camera={camera} cameras={cameras} />
           {nearby.map(event => (
             <Paper key={event.id} sx={{ p: 1.5, mt: 2, borderTop: `4px solid ${impactOf(event).color}` }}>
               <EventDetails event={event} />
             </Paper>
           ))}
           <Box sx={{ mt: 2 }}>
-            <Link to="/">← Back to the dashboard</Link>
+            <TextLink to="/">← Back to the dashboard</TextLink>
           </Box>
         </Grid>
       </Grid>
