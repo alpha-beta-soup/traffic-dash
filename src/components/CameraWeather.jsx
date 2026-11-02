@@ -1,15 +1,12 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
-import { getWeatherIcon } from '../utils';
+import { describeWind, getWeatherIcon } from '../utils';
 
-const WIND_THRESHOLD = 20; // km/h
 const COLD_TEMP = 3;
 const HOT_TEMP = 30;
-
-// Converts meteorological direction ("direction from") to a symbol rotation,
-// assuming the symbol points "up" or "to the north" at 0 degrees (no rotation)
-const meteo2rotation = d => (Math.round(d) + 180) % 360;
+// Strong wind stands out as a warning, readable on either theme
+const warningText = theme => theme.palette.warning[theme.palette.mode === 'dark' ? 'light' : 'dark'];
 
 const timeFormat = new Intl.DateTimeFormat('en-NZ', {
   hour: '2-digit',
@@ -18,14 +15,14 @@ const timeFormat = new Intl.DateTimeFormat('en-NZ', {
   timeZone: 'Pacific/Auckland',
 });
 
-export default function CameraWeather({ data: wx }) {
+// alwaysShowWind: show the wind even when it's light (otherwise only when windy, to keep the
+// cards short)
+export default function CameraWeather({ data: wx, alwaysShowWind = false }) {
   if (!wx) return null;
   const now = Date.now() / 1000;
   const nightTime = now < wx.sys.sunrise || now > wx.sys.sunset;
   const sunChange = nightTime ? wx.sys.sunrise : wx.sys.sunset;
-  // OpenWeatherMap's metric units give wind speed in m/s
-  const windSpeed = wx.wind?.speed * 3.6;
-  const windy = windSpeed > WIND_THRESHOLD;
+  const wind = describeWind(wx.wind);
   const temp = wx.main?.temp;
   const temperatureColor = temp <= COLD_TEMP ? 'info.main' : temp >= HOT_TEMP ? 'error.main' : 'inherit';
   return (
@@ -38,12 +35,25 @@ export default function CameraWeather({ data: wx }) {
       {temp != null && (
         <Box component="span" className="wi" sx={{ font: 'inherit', color: temperatureColor }}>{Math.round(temp)}°C</Box>
       )}
-      {windy && (
-        <>
-          <i style={{ paddingRight: 4 }} className="wi wi-strong-wind" title="wind speed" />
-          <span style={{ paddingRight: 4 }}>{`${Math.round(windSpeed)} km/h`}</span>
-          <i style={{ display: 'inline-block', transform: `rotate(${meteo2rotation(wx.wind.deg)}deg)` }} className="wi wi-wind-direction" title="wind direction" />
-        </>
+      {wind && (wind.windy || alwaysShowWind) && (
+        <Box
+          component="span"
+          title={wind.strong ? 'Strong wind: take care, especially in high-sided vehicles' : 'Wind'}
+          sx={{ ml: 0.75, color: wind.strong ? warningText : 'inherit', fontWeight: wind.strong ? 500 : undefined }}
+        >
+          <i style={{ paddingRight: 4 }} className="wi wi-strong-wind" />
+          <span style={{ paddingRight: 4 }}>
+            {`${wind.speed} km/h`}
+            {wind.gust && `, gusts ${wind.gust}`}
+          </span>
+          {wind.from && (
+            <>
+              {/* The arrow points the way the wind blows */}
+              <i style={{ display: 'inline-block', transform: `rotate(${wind.towards}deg)` }} className="wi wi-wind-direction" />
+              <span style={{ paddingLeft: 4 }}>{`from ${wind.from.label}`}</span>
+            </>
+          )}
+        </Box>
       )}
     </Typography>
   );

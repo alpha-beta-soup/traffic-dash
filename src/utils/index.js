@@ -11,4 +11,5 @@ export { default as randomInt } from './randomInt';
 export { default as replaceAll } from './replaceAll';
 export { default as timeAgo } from './timeAgo';
 export { default as fetchJson } from './fetchJson';
+export { default as describeWind } from './wind';
 export { default as jpegSize, resolutionLabel } from './jpegSize';

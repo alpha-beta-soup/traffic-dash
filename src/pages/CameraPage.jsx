@@ -470,7 +470,7 @@ function CameraView({
                 {congestion.description} congestion (free-flow score {congestion.score}%)
               </Typography>
             )}
-            <CameraWeather data={weather} />
+            <CameraWeather data={weather} alwaysShowWind />
             <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
               <ToggleButton on={pinned} onClick={() => onPin(id)} offVariant="outlined">Pin</ToggleButton>
               <Button size="small" variant="outlined" onClick={share}>Share</Button>
