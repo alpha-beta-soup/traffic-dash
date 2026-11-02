@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -14,17 +14,16 @@ import CameraPlaceholder from './CameraPlaceholder';
 import CameraWeather from './CameraWeather';
 import FadeImage from './FadeImage';
 import ToggleButton from './ToggleButton';
+import useLiveImage from '../hooks/useLiveImage';
 import useNow from '../hooks/useNow';
+import useWeather from '../hooks/useWeather';
+import { Link, cameraPath } from '../router';
 import { useLoopFrames, useLoopPlayback } from '../hooks/useLoop';
 import {
-  MAX_REFRESH,
-  MIN_REFRESH,
   descriptionReplace,
   eventImpacts,
 } from '../consts';
 import {
-  fetchJson,
-  randomInt,
   replaceAll,
   timeAgo,
 } from '../utils';
@@ -63,13 +62,9 @@ function NearbyEvent({ events }) {
 export default function Camera({
   camera, config, congestion, nearbyEvents = [], loopAll, pinned, onPin, onFocus,
 }) {
-  const { id, name, description, lat, lon, imageUrl, offline, underMaintenance } = camera;
+  const { id, name, description, lat, lon, offline, underMaintenance } = camera;
   const unavailable = offline || underMaintenance;
-  const [live, setLive] = useState(null); // { src, time }
-  const [failed, setFailed] = useState(false);
-  // NZTA is serving its stock "temporarily unavailable" image (the server spots it), though the
-  // camera isn't marked offline. Polling carries on, so the card recovers when the camera does.
-  const [stockImage, setStockImage] = useState(!!camera.unavailable);
+  const { live, failed, stockImage } = useLiveImage(camera, unavailable);
   // Follows the global toggle whenever it changes, but can be overridden per camera
   const [looping, setLooping] = useState(loopAll);
   const [prevLoopAll, setPrevLoopAll] = useState(loopAll);
@@ -77,57 +72,22 @@ export default function Camera({
     setPrevLoopAll(loopAll);
     setLooping(loopAll);
   }
-  const [weather, setWeather] = useState(null);
+  const weather = useWeather(config.weather, lat, lon);
   const [notice, setNotice] = useState(null);
-  const objectUrl = useRef(null);
-
-  const loadImage = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/cameras/${id}/image`);
-      if (res.status === 503) {
-        setStockImage(true);
-        return;
-      }
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      const time = new Date(res.headers.get('last-modified') ?? Date.now());
-      const src = URL.createObjectURL(await res.blob());
-      if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
-      objectUrl.current = src;
-      setLive({ src, time });
-      setFailed(false);
-      setStockImage(false);
-    } catch (err) {
-      console.error(`Camera ${id} (${name}):`, err);
-      setFailed(true);
-    }
-  }, [id, name]);
-
-  // Each live image fetch also lets the server cache a new frame for the loop
-  useEffect(() => {
-    if (unavailable) return undefined;
-    loadImage();
-    const timer = setInterval(loadImage, randomInt(MIN_REFRESH, MAX_REFRESH));
-    return () => clearInterval(timer);
-  }, [loadImage, unavailable]);
-
-  useEffect(() => () => objectUrl.current && URL.revokeObjectURL(objectUrl.current), []);
 
   // Reload the frame list whenever a new live frame arrives
   const liveTime = live?.time.getTime();
   const frames = useLoopFrames(id, looping && !unavailable && !!liveTime, liveTime);
   const shown = useLoopPlayback(frames, looping);
 
-  useEffect(() => {
-    if (!config.weather) return;
-    fetchJson(`/api/weather?lat=${lat}&lon=${lon}`).then(setWeather).catch(console.error);
-  }, [config.weather, lat, lon]);
-
+  // A link to the camera's own page
   const share = async () => {
+    const url = `${window.location.origin}${cameraPath(id)}`;
     try {
-      await navigator.clipboard.writeText(imageUrl);
+      await navigator.clipboard.writeText(url);
       setNotice(`Link for the ${name} camera copied to the clipboard!`);
     } catch {
-      setNotice(`Couldn't copy to the clipboard: ${imageUrl}`);
+      setNotice(`Couldn't copy to the clipboard: ${url}`);
     }
   };
 
@@ -146,7 +106,8 @@ export default function Camera({
 
   return (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ position: 'relative' }}>
+      {/* The image opens the camera's page */}
+      <Box component={Link} to={cameraPath(id)} aria-label={`Open ${name}`} sx={{ position: 'relative', display: 'block', color: 'inherit' }}>
         <CardMedia
           title={congestion
             ? `${name}\n${congestion.description} congestion (free-flow score ${congestion.score}%)${congestion.directionMatched ? '' : '\nFrom roads in both directions: none nearby run the camera\'s way'}`

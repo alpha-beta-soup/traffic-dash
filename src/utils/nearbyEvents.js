@@ -1,15 +1,17 @@
+import { eventImpacts } from '../consts';
 import { distanceTo } from './geometry';
 
-const NEARBY = 500; // metres
 // Caution events are most of them (roadworks with a speed limit, and so on): too common to flag
+// on cards, so by default only these count
 export const DISRUPTIVE = ['Road Closed', 'Delays'];
 
-// The disruptive road events within NEARBY of a camera, closures first, then nearest
-export default function nearbyEvents(camera, events) {
+// The road events within `radius` metres of a camera, most serious first, then nearest
+export default function nearbyEvents(camera, events, { radius = 500, impacts = DISRUPTIVE } = {}) {
+  const rank = event => eventImpacts[event.impact]?.rank ?? Infinity;
   return events
-    .filter(event => DISRUPTIVE.includes(event.impact))
+    .filter(event => impacts.includes(event.impact))
     .map(event => ({ event, distance: distanceTo(camera, event.geometry) }))
-    .filter(({ distance }) => distance <= NEARBY)
-    .sort((a, b) => DISRUPTIVE.indexOf(a.event.impact) - DISRUPTIVE.indexOf(b.event.impact) || a.distance - b.distance)
+    .filter(({ distance }) => distance <= radius)
+    .sort((a, b) => rank(a.event) - rank(b.event) || a.distance - b.distance)
     .map(({ event }) => event);
 }

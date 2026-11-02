@@ -64,12 +64,14 @@ const mapControlsDark = {
 
 export default function Map({
   styleUrl, dark, traffic, cameras, signs, events, centre, congestion, isShown, minimised,
-  layers, onBoundsChange, onSiteClick, onCongestion, onToggleMinimised, onLayersChange,
+  layers, initialView, onBoundsChange, onSiteClick, onCongestion, onToggleMinimised, onLayersChange, onViewChange,
 }) {
   const container = useRef(null);
   const mapRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
   const onBoundsChangeRef = useLatest(onBoundsChange);
+  const onViewChangeRef = useLatest(onViewChange);
+  const initialViewRef = useLatest(initialView);
   const onSiteClickRef = useLatest(onSiteClick);
   const onCongestionRef = useLatest(onCongestion);
   const camerasRef = useLatest(cameras);
@@ -101,10 +103,11 @@ export default function Map({
     const map = new maplibregl.Map({
       container: container.current,
       style: styleUrl,
-      // A new style (e.g. switching to the dark theme) rebuilds the map: keep the view
+      // Rebuilt for a new style (e.g. the dark theme): keep the view. Otherwise start where it
+      // last was (e.g. back from a camera page), if anywhere.
       ...(expandedView.current
         ? (({ center, zoom, bearing, pitch }) => ({ center, zoom, bearing, pitch }))(expandedView.current)
-        : { center: DEFAULT_LOCATION, zoom: DEFAULT_ZOOM }),
+        : initialViewRef.current ?? { center: DEFAULT_LOCATION, zoom: DEFAULT_ZOOM }),
       attributionControl: false, // Added below, so it can be left off when minimised
     });
     mapRef.current = map;
@@ -121,6 +124,8 @@ export default function Map({
         center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch(), bounds: map.getBounds(),
       };
       onBoundsChangeRef.current(expandedView.current.bounds);
+      const { center, zoom, bearing, pitch } = expandedView.current;
+      onViewChangeRef.current?.({ center: [center.lng, center.lat], zoom, bearing, pitch });
     };
     reportBoundsRef.current = reportBounds;
     // Once the map has settled (tiles loaded), match cameras in view to the traffic lines.
@@ -229,7 +234,10 @@ export default function Map({
       mapRef.current = null;
       map.remove();
     };
-  }, [styleUrl, dark, traffic, onBoundsChangeRef, onSiteClickRef, onCongestionRef, camerasRef, eventsRef, congestionRef, minimisedRef]);
+  }, [
+    styleUrl, dark, traffic, onBoundsChangeRef, onViewChangeRef, onSiteClickRef, onCongestionRef,
+    camerasRef, eventsRef, congestionRef, minimisedRef, initialViewRef,
+  ]);
 
   // Minimised: show the same area in the smaller box, and stop all interaction.
   // Runs after React has resized the container, so the map can measure its new size.
@@ -255,6 +263,8 @@ export default function Map({
       map.jumpTo({ center, zoom, bearing, pitch });
       restoreView.current = null;
       reportBoundsRef.current(); // The grid follows the map again
+    } else if (reportBoundsRef.current) {
+      reportBoundsRef.current(); // Expanded a map that started minimised (e.g. back from a camera page)
     }
   }, [minimised]);
 

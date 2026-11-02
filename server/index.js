@@ -129,8 +129,10 @@ app.get('/api/traffic-tiles/:z/:x/:y.pbf', handle(async (req, res) => {
 
 app.use('/cache', express.static(cacheDir, { maxAge: '1h' }));
 
-// In production, serve the built client too
+// In production, serve the built client too, including at its page addresses (e.g. a camera's
+// page at /camera/714), which are handled in the browser
 app.use(express.static(path.join(root, 'dist')));
+app.get('/camera/:id', (req, res) => res.sendFile(path.join(root, 'dist', 'index.html')));
 
 app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   console.error(err.message);
