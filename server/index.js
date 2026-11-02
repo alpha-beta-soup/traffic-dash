@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 
 import { cacheDir, listFrames } from './cache.js';
+import darkStyle from './darkStyle.js';
 import { getImage, showingPlaceholder } from './images.js';
 import { normaliseCamera, normaliseEvent, normaliseSign } from './normalise.js';
 import { cameraRoute, normaliseJourneys } from './routes.js';
@@ -15,6 +16,8 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TRAFFICNZ = 'https://trafficnz.info';
 const TRAFFICNZ_API = `${TRAFFICNZ}/service/traffic/rest/4`;
 const PORT = Number(process.env.PORT) || 3000;
+const MAP_STYLE = process.env.MAP_STYLE || 'https://tiles.openfreemap.org/styles/liberty';
+const MAP_STYLE_DARK_PATH = '/api/map-style/dark';
 
 const app = express();
 
@@ -85,10 +88,18 @@ app.get('/api/config', (req, res) => {
   res.json({
     weather: !!process.env.OPENWEATHERMAP_APIKEY,
     traffic: !!process.env.MAPBOX_TOKEN,
-    mapStyle: process.env.MAP_STYLE || 'https://tiles.openfreemap.org/styles/liberty',
-    mapStyleDark: process.env.MAP_STYLE_DARK || 'https://tiles.openfreemap.org/styles/dark',
+    mapStyle: MAP_STYLE,
+    // By default, the light style darkened (server/darkStyle.js), so both themes are one map
+    mapStyleDark: process.env.MAP_STYLE_DARK || MAP_STYLE_DARK_PATH,
   });
 });
+
+const getDarkStyle = memo(6 * 60 * 60 * 1000, async () => darkStyle(await fetchJson(MAP_STYLE)));
+
+app.get(MAP_STYLE_DARK_PATH, handle(async (req, res) => {
+  res.set('Cache-Control', 'no-cache'); // Revalidated by ETag: cheap, and never stale after a change
+  res.json(await getDarkStyle());
+}));
 
 // unavailable: NZTA hasn't marked the camera offline, but it's serving the stock
 // "temporarily unavailable" image (known only for cameras someone has looked at recently)
