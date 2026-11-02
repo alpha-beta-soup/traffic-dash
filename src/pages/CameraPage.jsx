@@ -28,6 +28,7 @@ const MAX_UPSCALE = 2; // Small cameras (480×270) only blur beyond about twice 
 const NEARBY = 1000; // metres: road events listed on the page
 const SIGNS_NEARBY = 2; // km: message signs shown on the page
 const MAX_SIGNS = 4;
+const DASHBOARD_ZOOM = 11; // The dashboard map's zoom when it has no saved view
 
 const clockFormat = new Intl.DateTimeFormat('en-NZ', {
   hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Auckland',
@@ -328,8 +329,19 @@ function SignsNearby({ camera, signs }) {
   );
 }
 
-export default function CameraPage({ id, cameras, events, signs, config, dark, congestion, pinned, onPin }) {
+// mapView: the dashboard map's saved view ({ center, zoom, bearing, pitch }, or null)
+export default function CameraPage({
+  id, cameras, events, signs, config, dark, mapView, onMapView, congestion, pinned, onPin,
+}) {
   const camera = cameras.find(c => c.id === id);
+  // Back on the dashboard, its map is where this page's map ended up: centred there, at the
+  // dashboard's own zoom (the small map's extent would be far too close on the big one). Just
+  // looking at a camera and going back leaves the dashboard as it was.
+  const [entryView] = useState(mapView);
+  const onMapMoveEnd = (centre) => {
+    if (!centre) onMapView(entryView);
+    else onMapView({ zoom: DASHBOARD_ZOOM, bearing: 0, pitch: 0, ...entryView, center: centre });
+  };
   useEffect(() => {
     document.title = camera ? `${camera.name} · NZ Traffic Dashboard` : 'NZ Traffic Dashboard';
     return () => { document.title = 'NZ Traffic Dashboard'; };
@@ -354,6 +366,7 @@ export default function CameraPage({ id, cameras, events, signs, config, dark, c
       signs={signs}
       config={config}
       dark={dark}
+      onMapMoveEnd={onMapMoveEnd}
       congestion={congestion}
       pinned={pinned}
       onPin={onPin}
@@ -361,7 +374,9 @@ export default function CameraPage({ id, cameras, events, signs, config, dark, c
   );
 }
 
-function CameraView({ camera, cameras, events, signs, config, dark, congestion, pinned, onPin }) {
+function CameraView({
+  camera, cameras, events, signs, config, dark, onMapMoveEnd, congestion, pinned, onPin,
+}) {
   const { id, name, description, direction, highway, region, lat, lon, imageUrl, offline, underMaintenance } = camera;
   const unavailable = offline || underMaintenance;
   const { live, failed, stockImage } = useLiveImage(camera, unavailable);
@@ -471,6 +486,7 @@ function CameraView({ camera, cameras, events, signs, config, dark, congestion, 
               styleUrl={dark ? config.mapStyleDark : config.mapStyle}
               dark={dark}
               traffic={config.traffic}
+              onMoveEnd={onMapMoveEnd}
             />
           )}
           <GettingAround camera={camera} cameras={cameras} />

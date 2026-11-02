@@ -19,8 +19,11 @@ const siteIdsOf = site => String(site.cameraIds).split(',').map(Number);
 
 // A small map around a camera on its page: the traffic, road events, message signs and the other camera sites
 // nearby, with this camera's site ringed. Clicking another site goes to its camera, preferring
-// the one facing the same way as this one.
-export default function CameraMap({ camera, cameras, events, signs, styleUrl, dark, traffic }) {
+// the one facing the same way as this one. Once settled, `onMoveEnd` gets the map's centre
+// ([lon, lat]), or null when that's back where it started (the first camera shown).
+export default function CameraMap({
+  camera, cameras, events, signs, styleUrl, dark, traffic, onMoveEnd,
+}) {
   const container = useRef(null);
   const mapRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
@@ -28,6 +31,13 @@ export default function CameraMap({ camera, cameras, events, signs, styleUrl, da
   const cameraRef = useLatest(camera);
   const centre = [camera.lon, camera.lat];
   const centreRef = useLatest(centre);
+  const start = useRef(centre);
+  const onMoveEndRef = useLatest(onMoveEnd);
+  const reportCentre = useLatest(([lon, lat]) => {
+    const [startLon, startLat] = start.current;
+    const atStart = Math.abs(lon - startLon) < 1e-6 && Math.abs(lat - startLat) < 1e-6;
+    onMoveEndRef.current?.(atStart ? null : [lon, lat]);
+  });
 
   useEffect(() => {
     const map = new maplibregl.Map({
@@ -72,6 +82,10 @@ export default function CameraMap({ camera, cameras, events, signs, styleUrl, da
     });
     map.on('mouseleave', 'cameras', () => { map.getCanvas().style.cursor = ''; });
     addSignHover(map);
+    map.on('moveend', () => {
+      const { lng, lat } = map.getCenter();
+      reportCentre.current([lng, lat]);
+    });
     map.on('click', 'cameras', (e) => {
       const ids = siteAt(e);
       if (ids.includes(cameraRef.current.id)) return;
@@ -85,12 +99,14 @@ export default function CameraMap({ camera, cameras, events, signs, styleUrl, da
       mapRef.current = null;
       map.remove();
     };
-  }, [styleUrl, dark, traffic, centreRef, cameraRef, camerasRef]);
+  }, [styleUrl, dark, traffic, centreRef, cameraRef, camerasRef, reportCentre]);
 
-  // Moving to another camera pans there, rather than starting a new map
+  // Moving to another camera pans there, rather than starting a new map. Reported straight
+  // away, in case the page is left before the map gets there.
   useEffect(() => {
     mapRef.current?.easeTo({ center: centreRef.current, duration: 800 });
-  }, [camera.lon, camera.lat, centreRef]);
+    reportCentre.current(centreRef.current);
+  }, [camera.lon, camera.lat, centreRef, reportCentre]);
 
   useEffect(() => {
     if (!loaded) return;

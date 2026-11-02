@@ -159,6 +159,8 @@ export default function App() {
           signs={signs}
           config={config ?? {}}
           dark={mode === 'dark'}
+          mapView={mapView}
+          onMapView={setMapView}
           congestion={congestion.get(route.id)}
           pinned={pinned.includes(route.id)}
           onPin={togglePin}
