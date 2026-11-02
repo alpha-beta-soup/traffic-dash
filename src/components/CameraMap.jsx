@@ -5,6 +5,7 @@ import Paper from '@mui/material/Paper';
 import useLatest from '../hooks/useLatest';
 import { addLayers } from '../map/layers';
 import maplibregl, { mapControlsDark } from '../map/maplibre';
+import { addSignHover, setSigns, startSignPaging } from '../map/signs';
 import { cameraPath, navigate } from '../router';
 import { groupCameraSites } from '../utils';
 
@@ -16,10 +17,10 @@ const point = ([lon, lat], properties = {}) => ({ type: 'Feature', geometry: { t
 const collection = features => ({ type: 'FeatureCollection', features });
 const siteIdsOf = site => String(site.cameraIds).split(',').map(Number);
 
-// A small map around a camera on its page: the traffic, road events and the other camera sites
+// A small map around a camera on its page: the traffic, road events, message signs and the other camera sites
 // nearby, with this camera's site ringed. Clicking another site goes to its camera, preferring
 // the one facing the same way as this one.
-export default function CameraMap({ camera, cameras, events, styleUrl, dark, traffic }) {
+export default function CameraMap({ camera, cameras, events, signs, styleUrl, dark, traffic }) {
   const container = useRef(null);
   const mapRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
@@ -70,6 +71,7 @@ export default function CameraMap({ camera, cameras, events, styleUrl, dark, tra
       map.getCanvas().style.cursor = ids.includes(cameraRef.current.id) ? '' : 'pointer';
     });
     map.on('mouseleave', 'cameras', () => { map.getCanvas().style.cursor = ''; });
+    addSignHover(map);
     map.on('click', 'cameras', (e) => {
       const ids = siteAt(e);
       if (ids.includes(cameraRef.current.id)) return;
@@ -103,6 +105,12 @@ export default function CameraMap({ camera, cameras, events, styleUrl, dark, tra
     if (!loaded) return;
     mapRef.current.getSource('event-icons').setData(collection(events.map(({ id, impact, lat, lon }) => point([lon, lat], { id, impact }))));
   }, [loaded, events]);
+
+  useEffect(() => {
+    if (loaded) setSigns(mapRef.current, signs);
+  }, [loaded, signs]);
+
+  useEffect(() => (loaded ? startSignPaging(mapRef.current) : undefined), [loaded]);
 
   return (
     <Paper sx={{ mt: 2, overflow: 'hidden', ...(dark && mapControlsDark) }}>

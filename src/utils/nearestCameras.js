@@ -1,4 +1,4 @@
-// The cameras nearest to one camera, on any road: for getting around where following a state
+// The cameras (or signs) nearest to one camera, on any road: for getting around where following a state
 // highway route doesn't help (at junctions and route ends, and for cameras on no route)
 
 const rad = d => (d * Math.PI) / 180;
@@ -24,14 +24,20 @@ export const compassPoint = (degrees) => {
   return { label, arrow };
 };
 
-// [{ camera, km, direction: { label, arrow } }], nearest first. `exclude`: ids to leave out
-// (e.g. the camera's own site, listed separately).
-export default function nearestCameras(camera, cameras, { limit = 6, maxKm = 10, exclude = [] } = {}) {
-  return cameras
-    .filter(other => other.id !== camera.id && !exclude.includes(other.id))
-    .map(other => ({ camera: other, km: kilometres(camera, other) }))
+// [{ item, km, direction: { label, arrow } }]: the items (anything with lat and lon) within
+// maxKm of `origin`, nearest first
+export function nearestTo(origin, items, { limit = 6, maxKm = 10 } = {}) {
+  return items
+    .map(item => ({ item, km: kilometres(origin, item) }))
     .filter(({ km }) => km <= maxKm)
     .sort((a, b) => a.km - b.km)
     .slice(0, limit)
-    .map(found => ({ ...found, direction: compassPoint(bearing(camera, found.camera)) }));
+    .map(found => ({ ...found, direction: compassPoint(bearing(origin, found.item)) }));
+}
+
+// [{ camera, km, direction: { label, arrow } }], nearest first. `exclude`: ids to leave out
+// (e.g. the camera's own site, listed separately).
+export default function nearestCameras(camera, cameras, { exclude = [], ...options } = {}) {
+  const others = cameras.filter(other => other.id !== camera.id && !exclude.includes(other.id));
+  return nearestTo(camera, others, options).map(({ item, ...found }) => ({ camera: item, ...found }));
 }

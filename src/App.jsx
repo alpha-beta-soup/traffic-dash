@@ -156,6 +156,7 @@ export default function App() {
           id={route.id}
           cameras={cameras}
           events={events}
+          signs={signs}
           config={config ?? {}}
           dark={mode === 'dark'}
           congestion={congestion.get(route.id)}

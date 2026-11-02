@@ -25,6 +25,7 @@ import {
 } from '../consts';
 import {
   replaceAll,
+  resolutionLabel,
   timeAgo,
 } from '../utils';
 import loadingImage from '../../data/hatchback_loading.gif';
@@ -127,7 +128,10 @@ export default function Camera({
             /* Fade at the loop restart and for live updates; cut between loop frames */
             : <FadeImage src={src} alt={name} fade={!frame || shown.fade} />}
         </CardMedia>
-        <Box sx={{ position: 'absolute', top: 6, right: 6 }}>
+        <Box sx={{ position: 'absolute', top: 6, right: 6, display: 'flex', gap: 0.5 }}>
+          {!placeholder && live?.size && (
+            <Chip size="small" label={resolutionLabel(live.size)} title={`${live.size.width} × ${live.size.height} pixels`} sx={overlayChip} />
+          )}
           {!placeholder && <CameraTime time={time} />}
         </Box>
         {nearbyEvents.length > 0 && <NearbyEvent events={nearbyEvents} />}

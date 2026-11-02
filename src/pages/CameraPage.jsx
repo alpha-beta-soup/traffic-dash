@@ -11,6 +11,7 @@ import CameraMap from '../components/CameraMap';
 import CameraPlaceholder from '../components/CameraPlaceholder';
 import CameraWeather from '../components/CameraWeather';
 import EventDetails, { impactOf } from '../components/EventDetails';
+import LedSign from '../components/LedSign';
 import ToggleButton from '../components/ToggleButton';
 import useLiveImage from '../hooks/useLiveImage';
 import { useLoopFrames } from '../hooks/useLoop';
@@ -20,37 +21,155 @@ import useWeather from '../hooks/useWeather';
 import { TextLink, cameraPath, navigate } from '../router';
 import { descriptionReplace, eventImpacts } from '../consts';
 import {
-  groupCameraSites, nearbyEvents, nearestCameras, replaceAll, timeAgo,
+  groupCameraSites, nearbyEvents, nearestCameras, nearestTo, replaceAll, resolutionLabel, timeAgo,
 } from '../utils';
 
 const MAX_UPSCALE = 2; // Small cameras (480×270) only blur beyond about twice their size
 const NEARBY = 1000; // metres: road events listed on the page
+const SIGNS_NEARBY = 2; // km: message signs shown on the page
+const MAX_SIGNS = 4;
 
 const clockFormat = new Intl.DateTimeFormat('en-NZ', {
   hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Auckland',
 });
 
-// The camera's whole frame, uncropped, as large as fits, up to MAX_UPSCALE its own size
-function LargeImage({ src, alt, stale }) {
+// Zoom is offered when the frame's own size is noticeably more than it's shown at
+const MIN_ZOOM_GAIN = 1.2;
+const DRAG_THRESHOLD = 4; // px: a press that moves less than this is a click
+
+// One axis of the zoomed view: the offset of the visible window into the full-size frame,
+// kept within the frame (or centred, where the frame is smaller than the window)
+const clampAxis = (offset, natural, shown) => (natural <= shown
+  ? (natural - shown) / 2
+  : Math.max(0, Math.min(natural - shown, offset)));
+
+// The camera's whole frame, uncropped, as large as fits, up to MAX_UPSCALE its own size. Where
+// that's well short of its own size (the HD cameras), a click shows it full size around the
+// point clicked; drag to look around, and click again (or Escape) to zoom out. `zoom` ({ x, y }:
+// the top left of the view into the full-size frame, or null) is kept by the page, so it
+// stays put through playback.
+function LargeImage({ src, alt, stale, zoom, onZoom }) {
   const [natural, setNatural] = useState(null);
+  const [box, setBox] = useState(null); // The image element's size on screen
+  const [dragging, setDragging] = useState(false);
+  const img = useRef(null);
+  const press = useRef(null);
+
+  useEffect(() => {
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setBox({ width, height });
+    });
+    observer.observe(img.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // object-fit: contain: the frame is drawn at this scale, centred in the element
+  const scale = natural && box ? Math.min(box.width / natural.width, box.height / natural.height) : 1;
+  const zoomable = !!natural && !!box && scale * MIN_ZOOM_GAIN <= 1;
+  const view = zoom && zoomable && {
+    x: clampAxis(zoom.x, natural.width, box.width),
+    y: clampAxis(zoom.y, natural.height, box.height),
+  };
+
+  const point = (e) => {
+    const rect = img.current.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+  const onPointerDown = (e) => {
+    if (e.button !== 0 || !zoomable) return;
+    press.current = { start: { x: e.clientX, y: e.clientY }, view, moved: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e) => {
+    const p = press.current;
+    if (!p?.view) return;
+    const dx = e.clientX - p.start.x;
+    const dy = e.clientY - p.start.y;
+    if (!p.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+    p.moved = true;
+    setDragging(true);
+    onZoom({ x: p.view.x - dx, y: p.view.y - dy });
+  };
+  const onPointerUp = (e) => {
+    const p = press.current;
+    press.current = null;
+    setDragging(false);
+    if (!p || p.moved) return;
+    if (p.view) {
+      onZoom(null);
+      return;
+    }
+    // Zoom in, keeping the point clicked under the pointer
+    const { x, y } = point(e);
+    const left = (box.width - natural.width * scale) / 2;
+    const top = (box.height - natural.height * scale) / 2;
+    onZoom({ x: (x - left) / scale - x, y: (y - top) / scale - y });
+  };
+
+  let cursor = 'default';
+  if (view) cursor = dragging ? 'grabbing' : 'grab';
+  else if (zoomable) cursor = 'zoom-in';
+
   return (
     <Box sx={{ bgcolor: 'common.black', display: 'flex', justifyContent: 'center', borderRadius: 1, overflow: 'hidden' }}>
       <Box
-        component="img"
-        src={src}
-        alt={alt}
-        onLoad={e => setNatural({ width: e.currentTarget.naturalWidth })}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => { press.current = null; setDragging(false); }}
         sx={{
-          display: 'block',
+          position: 'relative',
           width: '100%',
           maxWidth: natural ? natural.width * MAX_UPSCALE : '100%',
-          maxHeight: 'min(70vh, 100vh - 160px)', // Room for the controls below it, when stuck in view
-          objectFit: 'contain',
-          // The previous camera's image, while this one's loads
-          opacity: stale ? 0.4 : 1,
-          transition: 'opacity 0.2s',
+          cursor,
+          touchAction: view ? 'none' : 'auto', // Dragging a zoomed image pans it, not the page
+          userSelect: 'none',
         }}
-      />
+      >
+        <Box
+          component="img"
+          ref={img}
+          src={src}
+          alt={alt}
+          draggable={false}
+          onLoad={e => setNatural({ width: e.currentTarget.naturalWidth, height: e.currentTarget.naturalHeight })}
+          sx={{
+            display: 'block',
+            width: '100%',
+            maxHeight: 'min(70vh, 100vh - 160px)', // Room for the controls below it, when stuck in view
+            objectFit: 'contain',
+            // The previous camera's image, while this one's loads
+            opacity: stale ? 0.4 : 1,
+            transition: 'opacity 0.2s',
+          }}
+        />
+        {view && (
+          <>
+            <Box
+              aria-hidden
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                bgcolor: 'common.black',
+                backgroundImage: `url("${src}")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: `${natural.width}px ${natural.height}px`,
+                backgroundPosition: `${-view.x}px ${-view.y}px`,
+              }}
+            />
+            <Typography
+              variant="caption"
+              sx={{
+                position: 'absolute', right: 8, bottom: 8, px: 1, py: 0.25, borderRadius: 1,
+                bgcolor: 'rgba(0, 0, 0, 0.6)', color: 'common.white', pointerEvents: 'none',
+              }}
+            >
+              Full size · drag to look around · click or Esc to zoom out
+            </Typography>
+          </>
+        )}
+      </Box>
     </Box>
   );
 }
@@ -90,7 +209,7 @@ function PlaybackControls({ player, frames, time }) {
         aria-label="Saved frames"
       />
       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-        Space plays or pauses; ← and → step a frame.
+        Space plays or pauses; ← and → step a frame. Click a high-resolution image to see it full size.
       </Typography>
     </Box>
   );
@@ -189,7 +308,27 @@ function GettingAround({ camera, cameras }) {
   );
 }
 
-export default function CameraPage({ id, cameras, events, config, dark, congestion, pinned, onPin }) {
+// The lit message signs nearest the camera, as their LED boards. NZTA doesn't say which way a
+// sign faces, so some will be for traffic going the other way.
+function SignsNearby({ camera, signs }) {
+  const nearest = nearestTo(camera, signs, { limit: MAX_SIGNS, maxKm: SIGNS_NEARBY });
+  if (!nearest.length) return null;
+  return (
+    <Paper sx={{ p: 2, mt: 2 }}>
+      <Typography variant="subtitle2" sx={{ color: 'text.secondary', mb: 1 }}>Signs nearby</Typography>
+      {nearest.map(({ item: sign, km, direction }) => (
+        <Box key={sign.id} sx={{ '& + &': { mt: 1.5 } }}>
+          <LedSign message={sign.message} label={sign.name} />
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
+            {sign.name} · {km.toFixed(1)} km {direction.arrow} {direction.label}
+          </Typography>
+        </Box>
+      ))}
+    </Paper>
+  );
+}
+
+export default function CameraPage({ id, cameras, events, signs, config, dark, congestion, pinned, onPin }) {
   const camera = cameras.find(c => c.id === id);
   useEffect(() => {
     document.title = camera ? `${camera.name} · NZ Traffic Dashboard` : 'NZ Traffic Dashboard';
@@ -212,6 +351,7 @@ export default function CameraPage({ id, cameras, events, config, dark, congesti
       camera={camera}
       cameras={cameras}
       events={events}
+      signs={signs}
       config={config}
       dark={dark}
       congestion={congestion}
@@ -221,7 +361,7 @@ export default function CameraPage({ id, cameras, events, config, dark, congesti
   );
 }
 
-function CameraView({ camera, cameras, events, config, dark, congestion, pinned, onPin }) {
+function CameraView({ camera, cameras, events, signs, config, dark, congestion, pinned, onPin }) {
   const { id, name, description, direction, highway, region, lat, lon, imageUrl, offline, underMaintenance } = camera;
   const unavailable = offline || underMaintenance;
   const { live, failed, stockImage } = useLiveImage(camera, unavailable);
@@ -230,9 +370,15 @@ function CameraView({ camera, cameras, events, config, dark, congestion, pinned,
   const player = usePlayer(frames, id);
   const weather = useWeather(config.weather, lat, lon);
   const [notice, setNotice] = useState(null);
+  const [zoom, setZoom] = useState(null); // The zoomed view into the image (see LargeImage)
+  const [zoomId, setZoomId] = useState(id);
+  if (zoomId !== id) { // Another camera: start zoomed out
+    setZoomId(id);
+    setZoom(null);
+  }
   const nearby = nearbyEvents(camera, events, { radius: NEARBY, impacts: Object.keys(eventImpacts) });
 
-  // Keyboard: space plays or pauses, arrows step a frame, Escape goes back to the dashboard
+  // Keyboard: space plays or pauses, arrows step a frame, Escape zooms out or goes back to the dashboard
   useEffect(() => {
     const onKey = (e) => {
       // Leave keys alone in form fields and on the scrubber, which has its own arrow keys
@@ -243,11 +389,14 @@ function CameraView({ camera, cameras, events, config, dark, congestion, pinned,
         else player.play();
       } else if (e.key === 'ArrowLeft') player.step(-1);
       else if (e.key === 'ArrowRight') player.step(1);
-      else if (e.key === 'Escape') navigate('/');
+      else if (e.key === 'Escape') {
+        if (zoom) setZoom(null);
+        else navigate('/');
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [player]);
+  }, [player, zoom]);
 
   const share = async () => {
     const url = `${window.location.origin}${cameraPath(id)}`;
@@ -265,6 +414,10 @@ function CameraView({ camera, cameras, events, config, dark, congestion, pinned,
   else if (stockImage) placeholder = { title: 'Camera unavailable', detail: 'NZTA is showing its "temporarily unavailable" image. Checking again shortly.' };
   else if (failed && live?.id !== id) placeholder = { title: 'Image unavailable', detail: 'Retrying…' };
   const stale = !player.frame && live?.id !== id; // Still the previous camera's image
+  // e.g. "1920 × 1080 px (1080p)"
+  const size = !stale && live?.size;
+  const named = size && resolutionLabel(size).endsWith('p') ? ` (${resolutionLabel(size)})` : '';
+  const resolution = size && `${size.width} × ${size.height} px${named}`;
   const src = player.frame?.url ?? live?.src;
   const time = player.frame ? new Date(player.frame.time) : !stale && live?.time;
 
@@ -279,7 +432,7 @@ function CameraView({ camera, cameras, events, config, dark, congestion, pinned,
             </Box>
           ) : (
             <>
-              <LargeImage src={src} alt={name} stale={stale} />
+              <LargeImage src={src} alt={name} stale={stale} zoom={zoom} onZoom={setZoom} />
               <PlaybackControls player={player} frames={frames} time={time} />
             </>
           )}
@@ -291,7 +444,10 @@ function CameraView({ camera, cameras, events, config, dark, congestion, pinned,
               {replaceAll(description, descriptionReplace)}
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-              {[direction, highway, region].filter(Boolean).join(' · ')}
+              {[
+                direction, highway, region,
+                resolution,
+              ].filter(Boolean).join(' · ')}
             </Typography>
             {congestion && (
               <Typography variant="body2" sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -311,12 +467,14 @@ function CameraView({ camera, cameras, events, config, dark, congestion, pinned,
               camera={camera}
               cameras={cameras}
               events={events}
+              signs={signs}
               styleUrl={dark ? config.mapStyleDark : config.mapStyle}
               dark={dark}
               traffic={config.traffic}
             />
           )}
           <GettingAround camera={camera} cameras={cameras} />
+          <SignsNearby camera={camera} signs={signs} />
           {nearby.map(event => (
             <Paper key={event.id} sx={{ p: 1.5, mt: 2, borderTop: `4px solid ${impactOf(event).color}` }}>
               <EventDetails event={event} />
