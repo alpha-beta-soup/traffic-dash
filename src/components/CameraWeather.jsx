@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
-import { describeWind, getWeatherIcon } from '../utils';
+import { describeWind, getWeatherIcon, sunEvent } from '../utils';
 
 const COLD_TEMP = 3;
 const HOT_TEMP = 30;
@@ -21,7 +21,7 @@ export default function CameraWeather({ data: wx, alwaysShowWind = false }) {
   if (!wx) return null;
   const now = Date.now() / 1000;
   const nightTime = now < wx.sys.sunrise || now > wx.sys.sunset;
-  const sunChange = nightTime ? wx.sys.sunrise : wx.sys.sunset;
+  const sun = sunEvent(wx.sys, now); // Only near sunrise or sunset: sunstrike and frost
   const wind = describeWind(wx.wind);
   const temp = wx.main?.temp;
   const temperatureColor = temp <= COLD_TEMP ? 'info.main' : temp >= HOT_TEMP ? 'error.main' : 'inherit';
@@ -30,8 +30,12 @@ export default function CameraWeather({ data: wx, alwaysShowWind = false }) {
       {wx.weather.map(weather => (
         <i key={weather.id} className={getWeatherIcon(weather.id, nightTime)} title={weather.description} />
       ))}
-      <i style={{ paddingRight: 4 }} className={`wi ${nightTime ? 'wi-sunrise' : 'wi-sunset'}`} title={nightTime ? 'sunrise' : 'sunset'} />
-      {timeFormat.format(sunChange * 1000)}
+      {sun && (
+        <>
+          <i style={{ paddingRight: 4 }} className={`wi wi-${sun.type}`} title={sun.type} />
+          {timeFormat.format(sun.time * 1000)}
+        </>
+      )}
       {temp != null && (
         <Box component="span" className="wi" sx={{ font: 'inherit', color: temperatureColor }}>{Math.round(temp)}°C</Box>
       )}

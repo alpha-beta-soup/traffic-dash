@@ -12,4 +12,5 @@ export { default as replaceAll } from './replaceAll';
 export { default as timeAgo } from './timeAgo';
 export { default as fetchJson } from './fetchJson';
 export { default as describeWind } from './wind';
+export { default as sunEvent } from './sunEvent';
 export { default as jpegSize, resolutionLabel } from './jpegSize';
