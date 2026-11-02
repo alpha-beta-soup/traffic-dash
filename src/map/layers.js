@@ -67,7 +67,18 @@ const byImpact = (key, fallback) => ['match', ['get', 'impact'],
   ...Object.entries(eventImpacts).flatMap(([impact, style]) => [impact, style[key]]),
   fallback];
 
+// The base map's labels (road names, shields, places) that should stay readable above what
+// this app draws: the first symbol layer after its last road (OpenMapTiles' 'transportation'
+// lines), so the roads and bridges themselves stay underneath. Undefined (the top) for a
+// style with no such layers.
+const firstLabelLayer = (map) => {
+  const layers = map.getStyle().layers;
+  const lastRoad = layers.findLastIndex(layer => layer.type === 'line' && layer['source-layer'] === 'transportation');
+  return layers.slice(lastRoad + 1).find(layer => layer.type === 'symbol')?.id;
+};
+
 export const addLayers = (map, traffic, dark) => {
+  const belowLabels = firstLabelLayer(map);
   const labels = LABELS[dark ? 'dark' : 'light'];
   SITE_ICONS.forEach(icon => map.addImage(icon, siteIcon(icon.replace('site-', '')), { pixelRatio: 2 }));
   map.addSource('cameras', { type: 'geojson', data: EMPTY });
@@ -77,10 +88,11 @@ export const addLayers = (map, traffic, dark) => {
   map.addSource('event-fallback', { type: 'geojson', data: EMPTY }); // Events with no road to snap to
   map.addSource('event-icons', { type: 'geojson', data: EMPTY }); // One point per event, for its icon
   Object.entries(eventImpacts).forEach(([impact, style]) => map.addImage(eventIconId(impact), eventIcon(style), { pixelRatio: 2 }));
-  // Events along a stretch of road (roadworks, closures), under the traffic lines: where they've
-  // been matched to the real road (utils/snapEvents), a band along it, and otherwise along NZTA's
-  // own line, smoothed. Opaque tints rather than translucency: overlapping pieces (each vertex's
-  // round join, both directions of a road) would otherwise darken, tracking vertex density.
+  // Events along a stretch of road (roadworks, closures), under the traffic lines and the base
+  // map's labels: where they've been matched to the real road (utils/snapEvents), a band along
+  // it, and otherwise along NZTA's own line, smoothed. Opaque tints rather than translucency:
+  // overlapping pieces (each vertex's round join, both directions of a road) would otherwise
+  // darken, tracking vertex density.
   const eventTint = byImpactTint(dark);
   map.addLayer({
     id: 'event-roads',
@@ -92,7 +104,7 @@ export const addLayers = (map, traffic, dark) => {
       'line-color': eventTint,
       'line-width': ['interpolate', ['linear'], ['zoom'], 8, 6, 12, 12, 16, 24],
     },
-  });
+  }, belowLabels);
   map.addLayer({
     id: 'event-areas',
     type: 'line',
@@ -103,7 +115,7 @@ export const addLayers = (map, traffic, dark) => {
       'line-color': eventTint,
       'line-width': ['interpolate', ['linear'], ['zoom'], 8, 4, 12, 8, 16, 16],
     },
-  });
+  }, belowLabels);
   if (traffic) {
     map.addSource('traffic', {
       type: 'vector',
@@ -125,7 +137,7 @@ export const addLayers = (map, traffic, dark) => {
         'line-offset': trafficOffset,
         'line-opacity': trafficOpacity,
       },
-    });
+    }, belowLabels); // Above the event bands, which were added first
   }
   map.addLayer({
     id: 'matched',
