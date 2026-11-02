@@ -6,10 +6,12 @@ import Paper from '@mui/material/Paper';
 import CongestionLegend from './CongestionLegend';
 import EventPopup from './EventPopup';
 import LayersMenu from './LayersMenu';
+import MapPopup from './MapPopup';
 import SitePopup, { DIRECTION_ORDER } from './SitePopup';
+import WarningDetails from './WarningDetails';
 import useLatest from '../hooks/useLatest';
 import {
-  EMPTY, EVENT_LAYERS, SIGN_LAYERS, TRAFFIC_LAYERS, addLayers, trafficOpacity, trafficTiles,
+  EMPTY, EVENT_LAYERS, SIGN_LAYERS, TRAFFIC_LAYERS, WARNING_LAYERS, addLayers, trafficOpacity, trafficTiles,
 } from '../map/layers';
 import {
   addSignHover, hideExpandedSign, setSigns, startSignPaging,
@@ -17,7 +19,7 @@ import {
 import maplibregl, { mapControlsDark } from '../map/maplibre';
 import { TRAFFIC_REFRESH } from '../consts';
 import {
-  cameraCongestion, filterCamerasByBbox, groupCameraSites, snapEvents,
+  cameraCongestion, filterCamerasByBbox, groupCameraSites, snapEvents, warningColour, warningFeatures, warningsAt,
 } from '../utils';
 import { lines } from '../utils/geometry';
 
@@ -48,7 +50,7 @@ const toGeojson = items => ({
 });
 
 export default function Map({
-  styleUrl, dark, traffic, cameras, signs, events, centre, congestion, isShown, minimised,
+  styleUrl, dark, traffic, cameras, signs, events, warnings, centre, congestion, isShown, minimised,
   layers, initialView, onBoundsChange, onSiteClick, onCongestion, onToggleMinimised, onLayersChange, onViewChange,
 }) {
   const container = useRef(null);
@@ -61,6 +63,7 @@ export default function Map({
   const onCongestionRef = useLatest(onCongestion);
   const camerasRef = useLatest(cameras);
   const eventsRef = useLatest(events);
+  const warningsRef = useLatest(warnings);
   const congestionRef = useLatest(congestion);
   const minimisedRef = useLatest(minimised);
   const attributionRef = useRef(null);
@@ -73,16 +76,17 @@ export default function Map({
   const [hovered, setHovered] = useState(null); // { cameras, lngLat }: the site under the pointer
   const hoverKey = useRef(null);
   const [hoveredEvent, setHoveredEvent] = useState(null); // The road event under the pointer
+  const [clickedWarnings, setClickedWarnings] = useState(null); // { warnings, lngLat }: the weather warnings clicked on
   const [, setMoved] = useState(0);
 
   // Keep a hover popup on its icon if the map moves underneath it (e.g. scroll-zooming)
   useEffect(() => {
     const map = mapRef.current;
-    if ((!hovered && !hoveredEvent) || !map) return undefined;
+    if ((!hovered && !hoveredEvent && !clickedWarnings) || !map) return undefined;
     const onMove = () => setMoved(n => n + 1);
     map.on('move', onMove);
     return () => map.off('move', onMove);
-  }, [hovered, hoveredEvent]);
+  }, [hovered, hoveredEvent, clickedWarnings]);
 
   useEffect(() => {
     const map = new maplibregl.Map({
@@ -198,6 +202,19 @@ export default function Map({
       setHoveredEvent(null);
     });
 
+    // Clicking inside weather warning areas (other than on an icon) shows those warnings; clicking
+    // anywhere else closes them. A click rather than a hover: the areas are large.
+    map.on('click', (e) => {
+      if (minimisedRef.current) return;
+      const icons = ['cameras', 'events', 'signs'].filter(id => map.getLayer(id));
+      if (map.queryRenderedFeatures(e.point, { layers: icons }).length) return;
+      const lngLat = [e.lngLat.lng, e.lngLat.lat];
+      const found = map.getLayer('warning-areas') && map.queryRenderedFeatures(e.point, { layers: ['warning-areas'] }).length
+        ? warningsAt({ lon: lngLat[0], lat: lngLat[1] }, warningsRef.current)
+        : [];
+      setClickedWarnings(found.length ? { warnings: found, lngLat } : null);
+    });
+
     // Traffic changes every few minutes: refetch the tiles (the server shares them between viewers)
     const refresh = setInterval(() => map.getSource('traffic')?.setTiles(trafficTiles()), TRAFFIC_REFRESH);
 
@@ -209,7 +226,7 @@ export default function Map({
     };
   }, [
     styleUrl, dark, traffic, onBoundsChangeRef, onViewChangeRef, onSiteClickRef, onCongestionRef,
-    camerasRef, eventsRef, congestionRef, minimisedRef, initialViewRef,
+    camerasRef, eventsRef, warningsRef, congestionRef, minimisedRef, initialViewRef,
   ]);
 
   // Minimised: show the same area in the smaller box, and stop all interaction.
@@ -227,6 +244,7 @@ export default function Map({
       hoverKey.current = null;
       setHovered(null);
       setHoveredEvent(null);
+      setClickedWarnings(null);
       map.getSource('matched')?.setData(EMPTY);
       hideExpandedSign(map);
       map.getCanvas().style.cursor = '';
@@ -250,6 +268,8 @@ export default function Map({
     map.setLayoutProperty('cameras', 'text-field', layers.labels ? ['get', 'name'] : '');
     SIGN_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.signs ? 'visible' : 'none'));
     EVENT_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.events ? 'visible' : 'none'));
+    WARNING_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.warnings ? 'visible' : 'none'));
+    if (!layers.warnings) setClickedWarnings(null);
     TRAFFIC_LAYERS.forEach(id => map.getLayer(id) && map.setPaintProperty(id, 'line-opacity', layers.traffic ? trafficOpacity : 0));
   }, [loaded, layers]);
 
@@ -268,6 +288,10 @@ export default function Map({
     }));
     mapRef.current.getSource('cameras').setData(toGeojson(sites));
   }, [loaded, cameras, isShown]);
+
+  useEffect(() => {
+    if (loaded) mapRef.current.getSource('weather-warnings').setData(warningFeatures(warnings));
+  }, [loaded, warnings]);
 
   useEffect(() => {
     if (loaded) setSigns(mapRef.current, signs);
@@ -322,6 +346,18 @@ export default function Map({
       />
       {traffic && layers.traffic && !minimised && <CongestionLegend />}
       {hovered && !minimised && mapRef.current && <SitePopup map={mapRef.current} {...hovered} />}
+      {clickedWarnings && !minimised && mapRef.current && (
+        <MapPopup
+          map={mapRef.current}
+          lngLat={clickedWarnings.lngLat}
+          // Clickable, for its links
+          sx={{ p: 1.5, width: 320, pointerEvents: 'auto', borderTop: `4px solid ${warningColour(clickedWarnings.warnings[0])}` }}
+        >
+          {clickedWarnings.warnings.map((warning, i) => (
+            <Box key={warning.id} sx={{ mt: i ? 2 : 0 }}><WarningDetails warning={warning} /></Box>
+          ))}
+        </MapPopup>
+      )}
       {hoveredEvent && !minimised && mapRef.current && (
         <EventPopup map={mapRef.current} event={hoveredEvent} lngLat={[hoveredEvent.lon, hoveredEvent.lat]} />
       )}

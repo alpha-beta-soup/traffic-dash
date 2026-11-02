@@ -3,13 +3,13 @@ import Typography from '@mui/material/Typography';
 
 import { eventImpacts } from '../consts';
 
-const timeFormat = new Intl.DateTimeFormat('en-NZ', {
+export const timeFormat = new Intl.DateTimeFormat('en-NZ', {
   weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Auckland',
 });
 
 export const impactOf = event => eventImpacts[event.impact] ?? { label: event.impact, color: '#888' };
 
-function Detail({ label, children }) {
+export function Detail({ label, children }) {
   if (!children) return null;
   return (
     <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.75, whiteSpace: 'pre-line' }}>

@@ -44,10 +44,11 @@ Occasionally a file change isn't picked up by the dev server (`node --watch` for
 - **Camera pages:** click a card's image for the camera's own page (`/camera/<id>`): the whole frame at full size, playback you control (Live, play/pause, step, and a scrubber across the saved history; space and the arrow keys work too), click-to-zoom on high-resolution cameras, its details, a small map of the cameras and signs around it (click a site to go there), the nearest lit message signs as their LED boards, nearby road events, and getting around: the site's other cameras, the nearest cameras on any road, the next camera either way along the state highway, and every camera on the route. Share copies the page's link; Back returns to the dashboard where you left it, or, if you've moved on from the first camera, centred where you ended up. Moving between cameras updates the page in place: the map pans to the next camera.
 - **Congestion filter** (top bar): show only cameras at moderate or heavy congestion and worse.
 - **Message signs:** small icons that expand into the sign on hover; shown in full from zoom 14.
-- **Layers** (on the map): camera labels, message signs and congestion lines on or off.
+- **Layers** (on the map): camera labels, message signs, road events, weather warnings and congestion lines on or off.
 - **Minimise:** shrinks the map to a card, keeping the area in view.
 - **Theme** (top bar): Auto follows your system's light or dark setting; or pick Light or Dark.
 - **Road events:** crashes, closures, roadworks and hazards, as NZ-road-sign-style icons; hover one for details. Cameras within 500m of a closure or delay are flagged on their cards.
+- **Weather warnings:** MetService's current watches and warnings, as areas tinted in their colour (yellow, orange or red); click inside one for its details. Cameras inside a warning are flagged on their cards and show it on their pages.
 
 Settings (pins, filter, layers, looping, theme) and the map's position are remembered in the browser.
 
@@ -60,12 +61,15 @@ Settings (pins, filter, layers, looping, theme) and the map's position are remem
 
 Camera images and sign data: © Waka Kotahi NZ Transport Agency. The [NZTA terms of use](https://www.journeys.nzta.govt.nz/about-this-site/terms-of-use) allow reproduction for personal use with attribution. Contact informationteam@nzta.govt.nz before any other use, such as public hosting. This project is not affiliated with or endorsed by NZTA.
 
+Weather warnings: © MetService, licensed [Creative Commons BY 4.0](https://creativecommons.org/licenses/by/4.0/). This project is not affiliated with or endorsed by MetService.
+
 ## Thanks to
 
 - [NZTA traffic information (trafficnz.info)](https://trafficnz.info/)
 - [Mapbox Traffic v1](https://docs.mapbox.com/data/tilesets/reference/mapbox-traffic-v1/)
 - [OpenFreeMap](https://openfreemap.org/) and [MapLibre GL JS](https://maplibre.org/)
 - [OpenWeatherMap](https://openweathermap.org/)
+- [MetService severe weather warnings](https://www.metservice.com/warnings/home), from its public CAP feed (CC BY 4.0)
 - [Weather Icons](https://erikflowers.github.io/weather-icons/)
 
 ## Research & Prior Art

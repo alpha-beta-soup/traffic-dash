@@ -9,6 +9,8 @@ import siteIcon from './siteIcon';
 export const EMPTY = { type: 'FeatureCollection', features: [] };
 const FONT = ['Noto Sans Bold'];
 const MAPBOX_ATTRIBUTION = 'Traffic: <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">© Mapbox</a>';
+// Required by the feed's Creative Commons BY 4.0 licence
+const METSERVICE_ATTRIBUTION = 'Weather warnings: <a href="https://www.metservice.com/warnings/home" target="_blank" rel="noopener">© MetService</a> (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>)';
 
 // A new URL each refresh, so the browser can't answer from its own cache (the server
 // shares tiles between viewers regardless of the query string)
@@ -83,6 +85,10 @@ const BRIDGE_FILTERS = ['["==",["get","brunnel"],"bridge"]', '["==","brunnel","b
 const firstBridgeLayer = map => map.getStyle().layers.find(layer => layer['source-layer'] === 'transportation'
   && BRIDGE_FILTERS.some(filter => JSON.stringify(layer.filter ?? '').includes(filter)))?.id;
 
+// MetService weather warnings: a tint over each area, in its colour, under the roads
+export const WARNING_LAYERS = ['warning-areas', 'warning-outlines'];
+const firstRoadLayer = map => map.getStyle().layers.find(layer => layer['source-layer'] === 'transportation')?.id;
+
 // The congestion lines: on bridges, above the base map's bridges, and on other roads, under
 // them, so an overpass covers the road it crosses
 export const TRAFFIC_LAYERS = ['traffic', 'traffic-bridges'];
@@ -91,6 +97,21 @@ const ON_BRIDGE = ['==', ['get', 'structure'], 'bridge'];
 export const addLayers = (map, traffic, dark) => {
   const belowLabels = firstLabelLayer(map);
   const belowBridges = firstBridgeLayer(map) ?? belowLabels;
+  const belowRoads = firstRoadLayer(map) ?? belowBridges;
+  map.addSource('weather-warnings', { type: 'geojson', data: EMPTY, attribution: METSERVICE_ATTRIBUTION });
+  map.addLayer({
+    id: 'warning-areas',
+    type: 'fill',
+    source: 'weather-warnings',
+    paint: { 'fill-color': ['get', 'colour'], 'fill-opacity': dark ? 0.16 : 0.22 },
+  }, belowRoads);
+  map.addLayer({
+    id: 'warning-outlines',
+    type: 'line',
+    source: 'weather-warnings',
+    layout: { 'line-join': 'round' },
+    paint: { 'line-color': ['get', 'colour'], 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 1, 10, 2.5], 'line-opacity': 0.9 },
+  }, belowRoads);
   const labels = LABELS[dark ? 'dark' : 'light'];
   SITE_ICONS.forEach(icon => map.addImage(icon, siteIcon(icon.replace('site-', '')), { pixelRatio: 2 }));
   map.addSource('cameras', { type: 'geojson', data: EMPTY });

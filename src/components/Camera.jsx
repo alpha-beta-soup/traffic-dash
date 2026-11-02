@@ -13,6 +13,7 @@ import { alpha } from '@mui/material/styles';
 import CameraPlaceholder from './CameraPlaceholder';
 import CameraWeather from './CameraWeather';
 import FadeImage from './FadeImage';
+import { warningChipColours } from './WarningDetails';
 import ToggleButton from './ToggleButton';
 import useLiveImage from '../hooks/useLiveImage';
 import useNow from '../hooks/useNow';
@@ -57,10 +58,26 @@ function NearbyEvent({ events }) {
   );
 }
 
+// The most serious weather warning covering the camera, e.g. "Strong Wind Warning", with the
+// details on hover
+function WeatherWarning({ warnings }) {
+  const [warning] = warnings;
+  const more = warnings.length > 1 ? ` (+${warnings.length - 1} more)` : '';
+  return (
+    <Chip
+      size="small"
+      label={`${warning.headline}${more}`}
+      title={warnings.map(w => `${w.headline}: ${w.description}`).join('\n\n')}
+      sx={{ ...overlayChip, ...warningChipColours(warning), fontWeight: 500 }}
+    />
+  );
+}
+
 // congestion comes from the map, which matches cameras to the traffic lines it has loaded
 // nearbyEvents: road closures and delays near the camera, most serious first
+// warnings: MetService weather warnings covering the camera, most serious first
 export default function Camera({
-  camera, config, congestion, nearbyEvents = [], loopAll, pinned, onPin, onFocus,
+  camera, config, congestion, nearbyEvents = [], warnings = [], loopAll, pinned, onPin, onFocus,
 }) {
   const { id, name, description, lat, lon, offline, underMaintenance } = camera;
   const unavailable = offline || underMaintenance;
@@ -130,6 +147,12 @@ export default function Camera({
         <Box sx={{ position: 'absolute', top: 6, right: 6 }}>
           {!placeholder && <CameraTime time={time} />}
         </Box>
+        {/* Top left, clear of the time chip */}
+        {warnings.length > 0 && (
+          <Box sx={{ position: 'absolute', top: 6, left: 6, maxWidth: '55%' }}>
+            <WeatherWarning warnings={warnings} />
+          </Box>
+        )}
         {nearbyEvents.length > 0 && <NearbyEvent events={nearbyEvents} />}
       </Box>
       <CardContent sx={{ flexGrow: 1 }}>

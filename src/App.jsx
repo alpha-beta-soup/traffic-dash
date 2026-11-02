@@ -15,11 +15,14 @@ import useStoredSetting from './hooks/useStoredSetting';
 import CameraPage from './pages/CameraPage';
 import { matchRoute, navigate, usePath } from './router';
 import { MAX_CAMERAS_IN_VIEW, congestionEnum } from './consts';
-import { fetchJson, filterCamerasByBbox, nearbyEvents } from './utils';
+import {
+  fetchJson, filterCamerasByBbox, nearbyEvents, warningsAt,
+} from './utils';
 import { makeTheme } from './theme';
 
 const SIGNS_REFRESH = 60000;
 const EVENTS_REFRESH = 2 * 60_000; // The server reuses the feed for 2 minutes
+const WARNINGS_REFRESH = 5 * 60_000; // Likewise, for 5 minutes
 const CAMERAS_REFRESH = 2 * 60_000;
 const CARD_SIZE = { xs: 12, sm: 6, md: 4, lg: 2 }; // Grid columns per card, out of 12
 const NO_CONGESTION = new Map();
@@ -32,6 +35,7 @@ export default function App() {
   const [cameras, setCameras] = useState([]);
   const [signs, setSigns] = useState([]);
   const [events, setEvents] = useState([]);
+  const [warnings, setWarnings] = useState([]); // MetService weather warnings
   const [bounds, setBounds] = useState(null);
   const [pinned, setPinned] = useStoredSetting('pinned', []); // camera ids
   const [loopAll, setLoopAll] = useStoredSetting('loop-all', true);
@@ -89,6 +93,13 @@ export default function App() {
     const loadEvents = () => fetchJson('/api/events').then(setEvents).catch(console.error);
     loadEvents();
     const timer = setInterval(loadEvents, EVENTS_REFRESH);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const loadWarnings = () => fetchJson('/api/weather-warnings').then(setWarnings).catch(console.error);
+    loadWarnings();
+    const timer = setInterval(loadWarnings, WARNINGS_REFRESH);
     return () => clearInterval(timer);
   }, []);
 
@@ -157,6 +168,7 @@ export default function App() {
           cameras={cameras}
           events={events}
           signs={signs}
+          warnings={warnings}
           config={config ?? {}}
           dark={mode === 'dark'}
           mapView={mapView}
@@ -179,6 +191,7 @@ export default function App() {
                   cameras={cameras}
                   signs={signs}
                   events={events}
+                  warnings={warnings}
                   centre={centre}
                   congestion={congestion}
                   isShown={passesFilter}
@@ -201,6 +214,7 @@ export default function App() {
                   config={config ?? {}}
                   congestion={congestion.get(camera.id)}
                   nearbyEvents={nearbyEvents(camera, events)}
+                  warnings={warningsAt(camera, warnings)}
                   loopAll={loopAll}
                   pinned={pinned.includes(camera.id)}
                   onPin={togglePin}

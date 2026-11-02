@@ -8,6 +8,9 @@ import { getImage, showingPlaceholder } from './images.js';
 import { normaliseCamera, normaliseEvent, normaliseSign } from './normalise.js';
 import { cameraRoute, normaliseJourneys } from './routes.js';
 import {
+  FEED as WARNINGS_FEED, feedLinks, isCurrent, parseAlert,
+} from './weatherWarnings.js';
+import {
   MAX_ZOOM as TILE_MAX_ZOOM, MIN_ZOOM as TILE_MIN_ZOOM, TILE_TTL, getTile,
 } from './trafficTiles.js';
 
@@ -21,15 +24,17 @@ const MAP_STYLE_DARK_PATH = '/api/map-style/dark';
 
 const app = express();
 
-const fetchJson = async (url, options) => {
+const fetchOk = async (url, options) => {
   const res = await fetch(url, { signal: AbortSignal.timeout(15000), ...options });
   if (!res.ok) {
     // Report only the origin and path: the query string may hold an API key
     const { origin, pathname } = new URL(url);
     throw Object.assign(new Error(`${origin}${pathname} responded ${res.status}`), { status: res.status });
   }
-  return res.json();
+  return res;
 };
+const fetchJson = async (url, options) => (await fetchOk(url, options)).json();
+const fetchText = async (url, options) => (await fetchOk(url, options)).text();
 
 // Small in-memory cache so many browser tabs don't hammer the upstream feeds.
 // Caching the promise means concurrent callers share one request.
@@ -109,6 +114,28 @@ app.get('/api/cameras', handle(async (req, res) => {
 
 app.get('/api/signs', handle(async (req, res) => {
   res.json(await getSigns());
+}));
+
+// MetService's current weather watches and warnings. Each alert's document never changes, so
+// it's fetched once; the feed (which alerts are current) is checked every few minutes.
+const alerts = new Map();
+const getAlert = (url) => {
+  if (!alerts.has(url)) {
+    const alert = fetchText(url).then(parseAlert);
+    alert.catch(() => alerts.delete(url)); // Retry next time
+    alerts.set(url, alert);
+  }
+  return alerts.get(url);
+};
+const getWarnings = memo(5 * 60_000, async () => {
+  const links = feedLinks(await fetchText(WARNINGS_FEED));
+  [...alerts.keys()].filter(url => !links.includes(url)).forEach(url => alerts.delete(url)); // Gone from the feed
+  const settled = await Promise.allSettled(links.map(getAlert));
+  return settled.filter(r => r.status === 'fulfilled').map(r => r.value).filter(alert => isCurrent(alert));
+});
+
+app.get('/api/weather-warnings', handle(async (req, res) => {
+  res.json(await getWarnings());
 }));
 
 app.get('/api/events', handle(async (req, res) => {

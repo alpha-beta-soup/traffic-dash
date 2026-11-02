@@ -12,6 +12,7 @@ import CameraPlaceholder from '../components/CameraPlaceholder';
 import CameraWeather from '../components/CameraWeather';
 import EventDetails, { impactOf } from '../components/EventDetails';
 import LedSign from '../components/LedSign';
+import WarningDetails from '../components/WarningDetails';
 import ToggleButton from '../components/ToggleButton';
 import useLiveImage from '../hooks/useLiveImage';
 import { useLoopFrames } from '../hooks/useLoop';
@@ -21,7 +22,8 @@ import useWeather from '../hooks/useWeather';
 import { TextLink, cameraPath, navigate } from '../router';
 import { descriptionReplace, eventImpacts } from '../consts';
 import {
-  groupCameraSites, nearbyEvents, nearestCameras, nearestTo, replaceAll, resolutionLabel, timeAgo,
+  groupCameraSites, nearbyEvents, nearestCameras, nearestTo, replaceAll, resolutionLabel, timeAgo, warningColour,
+  warningsAt,
 } from '../utils';
 
 const MAX_UPSCALE = 2; // Small cameras (480×270) only blur beyond about twice their size
@@ -331,7 +333,7 @@ function SignsNearby({ camera, signs }) {
 
 // mapView: the dashboard map's saved view ({ center, zoom, bearing, pitch }, or null)
 export default function CameraPage({
-  id, cameras, events, signs, config, dark, mapView, onMapView, congestion, pinned, onPin,
+  id, cameras, events, signs, warnings, config, dark, mapView, onMapView, congestion, pinned, onPin,
 }) {
   const camera = cameras.find(c => c.id === id);
   // Back on the dashboard, its map is where this page's map ended up: centred there, at the
@@ -364,6 +366,7 @@ export default function CameraPage({
       cameras={cameras}
       events={events}
       signs={signs}
+      warnings={warnings}
       config={config}
       dark={dark}
       onMapMoveEnd={onMapMoveEnd}
@@ -375,7 +378,7 @@ export default function CameraPage({
 }
 
 function CameraView({
-  camera, cameras, events, signs, config, dark, onMapMoveEnd, congestion, pinned, onPin,
+  camera, cameras, events, signs, warnings, config, dark, onMapMoveEnd, congestion, pinned, onPin,
 }) {
   const { id, name, description, direction, highway, region, lat, lon, imageUrl, offline, underMaintenance } = camera;
   const unavailable = offline || underMaintenance;
@@ -477,12 +480,18 @@ function CameraView({
               <Button size="small" href={imageUrl} target="_blank" rel="noopener">NZTA image</Button>
             </Box>
           </Paper>
+          {warningsAt(camera, warnings).map(warning => (
+            <Paper key={warning.id} sx={{ p: 1.5, mt: 2, borderTop: `4px solid ${warningColour(warning)}` }}>
+              <WarningDetails warning={warning} />
+            </Paper>
+          ))}
           {config.mapStyle && (
             <CameraMap
               camera={camera}
               cameras={cameras}
               events={events}
               signs={signs}
+              warnings={warnings}
               styleUrl={dark ? config.mapStyleDark : config.mapStyle}
               dark={dark}
               traffic={config.traffic}
