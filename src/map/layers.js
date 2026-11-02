@@ -77,8 +77,20 @@ const firstLabelLayer = (map) => {
   return layers.slice(lastRoad + 1).find(layer => layer.type === 'symbol')?.id;
 };
 
+// The base map's first bridge layer (OpenMapTiles' brunnel = bridge), so what this app draws
+// along roads goes under overpasses, as the roads do. Undefined for a style without bridges.
+const BRIDGE_FILTERS = ['["==",["get","brunnel"],"bridge"]', '["==","brunnel","bridge"]'];
+const firstBridgeLayer = map => map.getStyle().layers.find(layer => layer['source-layer'] === 'transportation'
+  && BRIDGE_FILTERS.some(filter => JSON.stringify(layer.filter ?? '').includes(filter)))?.id;
+
+// The congestion lines: on bridges, above the base map's bridges, and on other roads, under
+// them, so an overpass covers the road it crosses
+export const TRAFFIC_LAYERS = ['traffic', 'traffic-bridges'];
+const ON_BRIDGE = ['==', ['get', 'structure'], 'bridge'];
+
 export const addLayers = (map, traffic, dark) => {
   const belowLabels = firstLabelLayer(map);
+  const belowBridges = firstBridgeLayer(map) ?? belowLabels;
   const labels = LABELS[dark ? 'dark' : 'light'];
   SITE_ICONS.forEach(icon => map.addImage(icon, siteIcon(icon.replace('site-', '')), { pixelRatio: 2 }));
   map.addSource('cameras', { type: 'geojson', data: EMPTY });
@@ -89,10 +101,10 @@ export const addLayers = (map, traffic, dark) => {
   map.addSource('event-icons', { type: 'geojson', data: EMPTY }); // One point per event, for its icon
   Object.entries(eventImpacts).forEach(([impact, style]) => map.addImage(eventIconId(impact), eventIcon(style), { pixelRatio: 2 }));
   // Events along a stretch of road (roadworks, closures), under the traffic lines and the base
-  // map's labels: where they've been matched to the real road (utils/snapEvents), a band along
-  // it, and otherwise along NZTA's own line, smoothed. Opaque tints rather than translucency:
-  // overlapping pieces (each vertex's round join, both directions of a road) would otherwise
-  // darken, tracking vertex density.
+  // map's bridges (NZTA doesn't say which events are on a bridge): where they've been matched to
+  // the real road (utils/snapEvents), a band along it, and otherwise along NZTA's own line,
+  // smoothed. Opaque tints rather than translucency: overlapping pieces (each vertex's round
+  // join, both directions of a road) would otherwise darken, tracking vertex density.
   const eventTint = byImpactTint(dark);
   map.addLayer({
     id: 'event-roads',
@@ -104,7 +116,7 @@ export const addLayers = (map, traffic, dark) => {
       'line-color': eventTint,
       'line-width': ['interpolate', ['linear'], ['zoom'], 8, 6, 12, 12, 16, 24],
     },
-  }, belowLabels);
+  }, belowBridges);
   map.addLayer({
     id: 'event-areas',
     type: 'line',
@@ -115,7 +127,7 @@ export const addLayers = (map, traffic, dark) => {
       'line-color': eventTint,
       'line-width': ['interpolate', ['linear'], ['zoom'], 8, 4, 12, 8, 16, 16],
     },
-  }, belowLabels);
+  }, belowBridges);
   if (traffic) {
     map.addSource('traffic', {
       type: 'vector',
@@ -124,12 +136,12 @@ export const addLayers = (map, traffic, dark) => {
       maxzoom: 16,
       attribution: MAPBOX_ATTRIBUTION,
     });
-    map.addLayer({
-      id: 'traffic',
+    const trafficLayer = (id, filter, before) => map.addLayer({
+      id,
       type: 'line',
       source: 'traffic',
       'source-layer': 'traffic',
-      filter: TRAFFIC_FILTER,
+      filter: ['all', TRAFFIC_FILTER, filter],
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-color': byCongestion('color', 'transparent'),
@@ -137,7 +149,10 @@ export const addLayers = (map, traffic, dark) => {
         'line-offset': trafficOffset,
         'line-opacity': trafficOpacity,
       },
-    }, belowLabels); // Above the event bands, which were added first
+    }, before);
+    // Both above the event bands, which were added first
+    trafficLayer('traffic', ['!', ON_BRIDGE], belowBridges);
+    trafficLayer('traffic-bridges', ON_BRIDGE, belowLabels);
   }
   map.addLayer({
     id: 'matched',

@@ -9,7 +9,7 @@ import LayersMenu from './LayersMenu';
 import SitePopup, { DIRECTION_ORDER } from './SitePopup';
 import useLatest from '../hooks/useLatest';
 import {
-  EMPTY, EVENT_LAYERS, SIGN_LAYERS, addLayers, trafficOpacity, trafficTiles,
+  EMPTY, EVENT_LAYERS, SIGN_LAYERS, TRAFFIC_LAYERS, addLayers, trafficOpacity, trafficTiles,
 } from '../map/layers';
 import {
   addSignHover, hideExpandedSign, setSigns, startSignPaging,
@@ -250,7 +250,7 @@ export default function Map({
     map.setLayoutProperty('cameras', 'text-field', layers.labels ? ['get', 'name'] : '');
     SIGN_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.signs ? 'visible' : 'none'));
     EVENT_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.events ? 'visible' : 'none'));
-    if (map.getLayer('traffic')) map.setPaintProperty('traffic', 'line-opacity', layers.traffic ? trafficOpacity : 0);
+    TRAFFIC_LAYERS.forEach(id => map.getLayer(id) && map.setPaintProperty(id, 'line-opacity', layers.traffic ? trafficOpacity : 0));
   }, [loaded, layers]);
 
   // Road events: a point each for the icon, and their stretches of road matched to the roads
