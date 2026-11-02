@@ -18,7 +18,9 @@ import usePlayer from '../hooks/usePlayer';
 import useWeather from '../hooks/useWeather';
 import { TextLink, cameraPath, navigate } from '../router';
 import { descriptionReplace, eventImpacts } from '../consts';
-import { groupCameraSites, nearbyEvents, replaceAll, timeAgo } from '../utils';
+import {
+  groupCameraSites, nearbyEvents, nearestCameras, replaceAll, timeAgo,
+} from '../utils';
 
 const MAX_UPSCALE = 2; // Small cameras (480×270) only blur beyond about twice their size
 const NEARBY = 1000; // metres: road events listed on the page
@@ -90,9 +92,11 @@ function PlaybackControls({ player, frames, time }) {
   );
 }
 
-// The cameras at the same site (other directions), the nearest along the road either way, and
-// every camera on the route, in order. Routes come from NZTA's state highway "journeys" (see
-// server/routes.js), so cameras off the state highways have none.
+// The cameras at the same site (other directions), the nearest along the road either way, the
+// nearest by distance on any road, and every camera on the route, in order. Routes come from
+// NZTA's state highway "journeys" (see server/routes.js): they end at junctions (e.g. SH2 ends
+// at Ngauranga, where SH1 carries on to Wellington), and cameras off the state highways have
+// none, so the nearest cameras by distance cover those.
 function GettingAround({ camera, cameras }) {
   // The route list opens scrolled to this camera
   const list = useRef(null);
@@ -110,7 +114,8 @@ function GettingAround({ camera, cameras }) {
   const before = others.filter(c => c.route.km <= route?.km).at(-1);
   const after = others.find(c => c.route.km > route?.km);
   const distance = other => `${Math.abs(other.route.km - route.km).toFixed(1)} km`;
-  if (!atSite.length && !onRoute.length) return null;
+  const nearest = nearestCameras(camera, cameras, { exclude: siteIds });
+  if (!atSite.length && !onRoute.length && !nearest.length) return null;
   return (
     <Paper sx={{ p: 2, mt: 2 }}>
       <Typography variant="subtitle2" sx={{ color: 'text.secondary', mb: 0.5 }}>Getting around</Typography>
@@ -134,6 +139,21 @@ function GettingAround({ camera, cameras }) {
         <Typography variant="body2">
           Towards {route.end} →: <TextLink to={cameraPath(after.id)}>{after.name}</TextLink> · {distance(after)}
         </Typography>
+      )}
+      {nearest.length > 0 && (
+        <>
+          <Typography variant="subtitle2" sx={{ color: 'text.secondary', mt: 1.5 }}>Nearby</Typography>
+          <Box component="ul" sx={{ m: 0, pl: 0, listStyle: 'none' }}>
+            {nearest.map(({ camera: c, km, direction }) => (
+              <Box component="li" key={c.id} sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, py: 0.25, fontSize: '0.85rem' }}>
+                <TextLink to={cameraPath(c.id)}>{c.name}</TextLink>
+                <Box component="span" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }} title={`${km.toFixed(1)} km ${direction.label}`}>
+                  {km.toFixed(1)} km {direction.arrow} {direction.label}
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        </>
       )}
       {onRoute.length > 1 && (
         <>
