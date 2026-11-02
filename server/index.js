@@ -5,6 +5,7 @@ import express from 'express';
 import { cacheDir, listFrames } from './cache.js';
 import { getImage, showingPlaceholder } from './images.js';
 import { normaliseCamera, normaliseEvent, normaliseSign } from './normalise.js';
+import { cameraRoute, normaliseJourneys } from './routes.js';
 import {
   MAX_ZOOM as TILE_MAX_ZOOM, MIN_ZOOM as TILE_MIN_ZOOM, TILE_TTL, getTile,
 } from './trafficTiles.js';
@@ -42,14 +43,29 @@ const memo = (ttl, fn) => {
   };
 };
 
+// State highway routes ("journeys"), to place cameras along them. They rarely change, and the
+// feed is large and slow (about 20s), so it gets longer than the usual timeout, starts loading
+// when the server starts, and never holds up the camera list: cameras get routes once they've
+// loaded (within a minute or so of starting).
+let routes = new Map();
+const loadRoutes = memo(6 * 60 * 60_000, async () => {
+  const data = await fetchJson(`${TRAFFICNZ_API}/journeys/all/12`, {
+    headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(60_000),
+  });
+  routes = normaliseJourneys(data.response.journey ?? []);
+});
+const refreshRoutes = () => loadRoutes().catch(err => console.error(err.message));
+refreshRoutes();
+
 const getCameras = memo(60_000, async () => {
+  refreshRoutes(); // Not awaited: uses the routes loaded so far
   const data = await fetchJson(`${TRAFFICNZ_API}/cameras/all`, { headers: { Accept: 'application/json' } });
-  return data.response.camera.map(normaliseCamera);
+  return data.response.camera.map(camera => ({
+    ...normaliseCamera(camera),
+    route: cameraRoute(camera.journey?.id, [camera.longitude, camera.latitude], routes),
+  }));
 });
 
-// Road events: crashes, closures, roadworks, hazards. Only those in effect now. The zoom level
-// sets the detail of their geometry: at 18, stretches of road follow its bends far better than
-// at lower levels (2-4 times the points), for about 30% more data from NZTA.
 const getEvents = memo(2 * 60_000, async () => {
   const data = await fetchJson(`${TRAFFICNZ_API}/events/all/18`, { headers: { Accept: 'application/json' } });
   return [data.response.roadevent ?? []].flat()
@@ -129,8 +145,10 @@ app.get('/api/traffic-tiles/:z/:x/:y.pbf', handle(async (req, res) => {
 
 app.use('/cache', express.static(cacheDir, { maxAge: '1h' }));
 
-// In production, serve the built client too
+// In production, serve the built client too, including at its page addresses (e.g. a camera's
+// page at /camera/714), which are handled in the browser
 app.use(express.static(path.join(root, 'dist')));
+app.get('/camera/:id', (req, res) => res.sendFile(path.join(root, 'dist', 'index.html')));
 
 app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   console.error(err.message);

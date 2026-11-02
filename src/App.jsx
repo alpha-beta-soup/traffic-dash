@@ -12,6 +12,8 @@ import ErrorSnackbar from './components/ErrorSnackbar';
 import { DEFAULT_LAYERS } from './components/LayersMenu';
 import TrafficMap from './components/Map';
 import useStoredSetting from './hooks/useStoredSetting';
+import CameraPage from './pages/CameraPage';
+import { matchRoute, navigate, usePath } from './router';
 import { MAX_CAMERAS_IN_VIEW, congestionEnum } from './consts';
 import { fetchJson, filterCamerasByBbox, nearbyEvents } from './utils';
 import { makeTheme } from './theme';
@@ -40,6 +42,9 @@ export default function App() {
   const [congestionFilter, setCongestionFilter] = useStoredSetting('congestion-filter', 'all');
   const [centre, setCentre] = useState(null);
   const [mapMinimised, setMapMinimised] = useState(false);
+  // Where the dashboard map was, so it comes back there (from a camera page, or on reload)
+  const [mapView, setMapView] = useStoredSetting('map-view', null);
+  const route = matchRoute(usePath());
   // 'auto' follows the system's light or dark setting
   const [themeSetting, setThemeSetting] = useStoredSetting('theme', 'auto');
   const systemDark = useMediaQuery('(prefers-color-scheme: dark)');
@@ -144,56 +149,76 @@ export default function App() {
         themeSetting={themeSetting}
         mode={mode}
         onThemeSetting={setThemeSetting}
+        onBack={route.page === 'dashboard' ? null : () => navigate('/')}
       />
-      <Box sx={{ p: 1 }}>
-        <Grid container spacing={1}>
-          {/* Minimised, the map takes a card's place at the start of the grid (same element, so it isn't recreated) */}
-          <Grid size={mapMinimised ? CARD_SIZE : 12}>
-            {config && (
-              <TrafficMap
-                styleUrl={mode === 'dark' ? config.mapStyleDark : config.mapStyle}
-                dark={mode === 'dark'}
-                traffic={config.traffic}
-                cameras={cameras}
-                signs={signs}
-                events={events}
-                centre={centre}
-                congestion={congestion}
-                isShown={passesFilter}
-                minimised={mapMinimised}
-                onBoundsChange={setBounds}
-                onSiteClick={toggleSitePins}
-                onCongestion={updateCongestion}
-                onToggleMinimised={() => setMapMinimised(on => !on)}
-                layers={mapLayers}
-                onLayersChange={setMapLayers}
-              />
+      {route.page === 'camera' && (
+        <CameraPage
+          id={route.id}
+          cameras={cameras}
+          events={events}
+          signs={signs}
+          config={config ?? {}}
+          dark={mode === 'dark'}
+          mapView={mapView}
+          onMapView={setMapView}
+          congestion={congestion.get(route.id)}
+          pinned={pinned.includes(route.id)}
+          onPin={togglePin}
+        />
+      )}
+      {route.page === 'dashboard' && (
+        <Box sx={{ p: 1 }}>
+          <Grid container spacing={1}>
+            {/* Minimised, the map takes a card's place at the start of the grid (same element, so it isn't recreated) */}
+            <Grid size={mapMinimised ? CARD_SIZE : 12}>
+              {config && (
+                <TrafficMap
+                  styleUrl={mode === 'dark' ? config.mapStyleDark : config.mapStyle}
+                  dark={mode === 'dark'}
+                  traffic={config.traffic}
+                  cameras={cameras}
+                  signs={signs}
+                  events={events}
+                  centre={centre}
+                  congestion={congestion}
+                  isShown={passesFilter}
+                  minimised={mapMinimised}
+                  onBoundsChange={setBounds}
+                  onSiteClick={toggleSitePins}
+                  onCongestion={updateCongestion}
+                  onToggleMinimised={() => setMapMinimised(on => !on)}
+                  layers={mapLayers}
+                  onLayersChange={setMapLayers}
+                  initialView={mapView}
+                  onViewChange={setMapView}
+                />
+              )}
+            </Grid>
+            {shown.map(camera => (
+              <Grid key={camera.id} size={CARD_SIZE}>
+                <Camera
+                  camera={camera}
+                  config={config ?? {}}
+                  congestion={congestion.get(camera.id)}
+                  nearbyEvents={nearbyEvents(camera, events)}
+                  loopAll={loopAll}
+                  pinned={pinned.includes(camera.id)}
+                  onPin={togglePin}
+                  onFocus={focus}
+                />
+              </Grid>
+            ))}
+            {tooMany && (
+              <Grid size={12} sx={{ textAlign: 'center', py: 2 }}>
+                <Typography>
+                  {working.length} working cameras in view{congestionFilter !== 'all' && config?.traffic ? ` with ${congestionEnum[congestionFilter].description.toLowerCase()} or worse congestion` : ''}.
+                  {' '}Zoom in or pan to see them, or click a site on the map to pin its cameras.
+                </Typography>
+              </Grid>
             )}
           </Grid>
-          {shown.map(camera => (
-            <Grid key={camera.id} size={CARD_SIZE}>
-              <Camera
-                camera={camera}
-                config={config ?? {}}
-                congestion={congestion.get(camera.id)}
-                nearbyEvents={nearbyEvents(camera, events)}
-                loopAll={loopAll}
-                pinned={pinned.includes(camera.id)}
-                onPin={togglePin}
-                onFocus={focus}
-              />
-            </Grid>
-          ))}
-          {tooMany && (
-            <Grid size={12} sx={{ textAlign: 'center', py: 2 }}>
-              <Typography>
-                {working.length} working cameras in view{congestionFilter !== 'all' && config?.traffic ? ` with ${congestionEnum[congestionFilter].description.toLowerCase()} or worse congestion` : ''}.
-                {' '}Zoom in or pan to see them, or click a site on the map to pin its cameras.
-              </Typography>
-            </Grid>
-          )}
-        </Grid>
-      </Box>
+        </Box>
+      )}
       <ErrorSnackbar
         message={error}
         actionLabel="Retry"

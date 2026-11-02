@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import * as maplibregl from 'maplibre-gl';
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
-import { alpha } from '@mui/material/styles';
 
 import CongestionLegend from './CongestionLegend';
 import EventPopup from './EventPopup';
@@ -12,17 +9,17 @@ import LayersMenu from './LayersMenu';
 import SitePopup, { DIRECTION_ORDER } from './SitePopup';
 import useLatest from '../hooks/useLatest';
 import {
-  EMPTY, EVENT_LAYERS, SIGN_LAYERS, SIGN_PAGE_TIME, addLayers, signIcon, signImageId, trafficOpacity, trafficTiles,
+  EMPTY, EVENT_LAYERS, SIGN_LAYERS, addLayers, trafficOpacity, trafficTiles,
 } from '../map/layers';
+import {
+  addSignHover, hideExpandedSign, setSigns, startSignPaging,
+} from '../map/signs';
+import maplibregl, { mapControlsDark } from '../map/maplibre';
 import { TRAFFIC_REFRESH } from '../consts';
 import {
-  cameraCongestion, drawSignPage, filterCamerasByBbox, groupCameraSites, signPages, signSize, snapEvents,
+  cameraCongestion, filterCamerasByBbox, groupCameraSites, snapEvents,
 } from '../utils';
 import { lines } from '../utils/geometry';
-
-// maplibre-gl 6 looks for its worker next to its own module, which isn't there once
-// Vite has pre-bundled (dev) or bundled (build) it; so point it at the real file
-maplibregl.setWorkerUrl(workerUrl);
 
 const DEFAULT_LOCATION = [174.787, -41.272]; // Wellington
 const DEFAULT_ZOOM = 11;
@@ -50,26 +47,16 @@ const toGeojson = items => ({
   })),
 });
 
-// MapLibre's own controls are light; on the dark theme, give them its colours
-const mapControlsDark = {
-  '& .maplibregl-ctrl-group': { bgcolor: 'background.paper' },
-  '& .maplibregl-ctrl-group button + button': { borderTopColor: 'divider' },
-  '& .maplibregl-ctrl-icon': { filter: 'invert(1)' },
-  '& .maplibregl-ctrl-scale': {
-    bgcolor: theme => alpha(theme.palette.background.paper, 0.8), color: 'text.secondary', borderColor: 'text.secondary',
-  },
-  '& .maplibregl-ctrl-attrib': { bgcolor: theme => alpha(theme.palette.background.paper, 0.8), color: 'text.secondary' },
-  '& .maplibregl-ctrl-attrib a': { color: 'text.secondary' },
-};
-
 export default function Map({
   styleUrl, dark, traffic, cameras, signs, events, centre, congestion, isShown, minimised,
-  layers, onBoundsChange, onSiteClick, onCongestion, onToggleMinimised, onLayersChange,
+  layers, initialView, onBoundsChange, onSiteClick, onCongestion, onToggleMinimised, onLayersChange, onViewChange,
 }) {
   const container = useRef(null);
   const mapRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
   const onBoundsChangeRef = useLatest(onBoundsChange);
+  const onViewChangeRef = useLatest(onViewChange);
+  const initialViewRef = useLatest(initialView);
   const onSiteClickRef = useLatest(onSiteClick);
   const onCongestionRef = useLatest(onCongestion);
   const camerasRef = useLatest(cameras);
@@ -101,10 +88,11 @@ export default function Map({
     const map = new maplibregl.Map({
       container: container.current,
       style: styleUrl,
-      // A new style (e.g. switching to the dark theme) rebuilds the map: keep the view
+      // Rebuilt for a new style (e.g. the dark theme): keep the view. Otherwise start where it
+      // last was (e.g. back from a camera page), if anywhere.
       ...(expandedView.current
         ? (({ center, zoom, bearing, pitch }) => ({ center, zoom, bearing, pitch }))(expandedView.current)
-        : { center: DEFAULT_LOCATION, zoom: DEFAULT_ZOOM }),
+        : initialViewRef.current ?? { center: DEFAULT_LOCATION, zoom: DEFAULT_ZOOM }),
       attributionControl: false, // Added below, so it can be left off when minimised
     });
     mapRef.current = map;
@@ -121,6 +109,8 @@ export default function Map({
         center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch(), bounds: map.getBounds(),
       };
       onBoundsChangeRef.current(expandedView.current.bounds);
+      const { center, zoom, bearing, pitch } = expandedView.current;
+      onViewChangeRef.current?.({ center: [center.lng, center.lat], zoom, bearing, pitch });
     };
     reportBoundsRef.current = reportBounds;
     // Once the map has settled (tiles loaded), match cameras in view to the traffic lines.
@@ -194,19 +184,7 @@ export default function Map({
     });
 
     // Hovering a sign's icon shows the sign itself
-    map.on('mousemove', 'signs', (e) => {
-      if (minimisedRef.current) return;
-      const { id } = e.features[0].properties;
-      // Not when that sign is already showing in full
-      if (map.getLayer('sign-full') && map.queryRenderedFeatures(e.point, { layers: ['sign-full'] })
-        .some(f => f.properties.id === id)) return;
-      map.getCanvas().style.cursor = 'pointer';
-      map.setFilter('sign-expanded', ['==', ['get', 'id'], id]);
-    });
-    map.on('mouseleave', 'signs', () => {
-      map.getCanvas().style.cursor = '';
-      map.setFilter('sign-expanded', ['==', ['get', 'id'], -1]);
-    });
+    addSignHover(map, () => minimisedRef.current);
 
     // Hovering a road event's icon shows its details
     map.on('mousemove', 'events', (e) => {
@@ -229,7 +207,10 @@ export default function Map({
       mapRef.current = null;
       map.remove();
     };
-  }, [styleUrl, dark, traffic, onBoundsChangeRef, onSiteClickRef, onCongestionRef, camerasRef, eventsRef, congestionRef, minimisedRef]);
+  }, [
+    styleUrl, dark, traffic, onBoundsChangeRef, onViewChangeRef, onSiteClickRef, onCongestionRef,
+    camerasRef, eventsRef, congestionRef, minimisedRef, initialViewRef,
+  ]);
 
   // Minimised: show the same area in the smaller box, and stop all interaction.
   // Runs after React has resized the container, so the map can measure its new size.
@@ -247,7 +228,7 @@ export default function Map({
       setHovered(null);
       setHoveredEvent(null);
       map.getSource('matched')?.setData(EMPTY);
-      if (map.getLayer('sign-expanded')) map.setFilter('sign-expanded', ['==', ['get', 'id'], -1]);
+      hideExpandedSign(map);
       map.getCanvas().style.cursor = '';
       if (view) map.fitBounds(view.bounds, { animate: false, bearing: view.bearing, pitch: view.pitch });
     } else if (restoreView.current) {
@@ -255,6 +236,8 @@ export default function Map({
       map.jumpTo({ center, zoom, bearing, pitch });
       restoreView.current = null;
       reportBoundsRef.current(); // The grid follows the map again
+    } else if (reportBoundsRef.current) {
+      reportBoundsRef.current(); // Expanded a map that started minimised (e.g. back from a camera page)
     }
   }, [minimised]);
 
@@ -287,36 +270,10 @@ export default function Map({
   }, [loaded, cameras, isShown]);
 
   useEffect(() => {
-    if (!loaded) return;
-    const map = mapRef.current;
-    const features = signs.flatMap((sign) => {
-      const pages = signPages(sign.message);
-      if (!pages.length) return [];
-      const size = signSize(pages);
-      const icons = pages.map((lines, page) => {
-        const id = signImageId(pages, size, page);
-        if (!map.hasImage(id)) map.addImage(id, drawSignPage(lines, size), { pixelRatio: 2 });
-        return [`page${page}`, id];
-      });
-      // Travel-time signs list destinations with right-aligned minutes, e.g. "SH1 … 21"
-      const travelTimes = pages.some(lines => lines.some(({ right }) => /^\d+$/.test(right)));
-      return [{
-        lat: sign.lat, lon: sign.lon, id: sign.id, name: sign.name, travelTimes, pages: pages.length, ...Object.fromEntries(icons),
-      }];
-    });
-    map.getSource('signs').setData(toGeojson(features));
+    if (loaded) setSigns(mapRef.current, signs);
   }, [loaded, signs]);
 
-  // Every multi-page sign steps to its next page together
-  useEffect(() => {
-    if (!loaded) return undefined;
-    let tick = 0;
-    const timer = setInterval(() => {
-      tick += 1;
-      ['sign-expanded', 'sign-full'].forEach(id => mapRef.current?.setLayoutProperty(id, 'icon-image', signIcon(tick)));
-    }, SIGN_PAGE_TIME);
-    return () => clearInterval(timer);
-  }, [loaded]);
+  useEffect(() => (loaded ? startSignPaging(mapRef.current) : undefined), [loaded]);
 
   useEffect(() => {
     if (centre) mapRef.current?.flyTo({ center: centre.lngLat, zoom: centre.zoom, curve: 6 ** 0.25 });

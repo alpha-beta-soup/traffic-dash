@@ -26,9 +26,10 @@ const CONGESTION_FILTERS = [
   ['heavy', 'Heavy+'],
 ];
 
-// congestionFilter is null when traffic data isn't available
+// congestionFilter is null when traffic data isn't available. onBack: on a page other than the
+// dashboard, which has a way back instead of the dashboard's controls
 export default function AppBar({
-  loopAll, onToggleLoopAll, congestionFilter, onCongestionFilter, themeSetting, mode, onThemeSetting,
+  loopAll, onToggleLoopAll, congestionFilter, onCongestionFilter, themeSetting, mode, onThemeSetting, onBack,
 }) {
   const now = useNow(1000);
   return (
@@ -41,7 +42,8 @@ export default function AppBar({
           {clockFormat.format(now)}
         </Typography>
         <Box sx={{ ml: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>
-          {congestionFilter && (
+          {onBack && <Button size="small" variant="outlined" onClick={onBack}>← Dashboard</Button>}
+          {!onBack && congestionFilter && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }} role="group" aria-label="Congestion filter">
               <Typography variant="body2" sx={{ mr: 0.5, whiteSpace: 'nowrap' }}>Congestion</Typography>
               {CONGESTION_FILTERS.map(([value, label]) => (
@@ -51,7 +53,7 @@ export default function AppBar({
               ))}
             </Box>
           )}
-          <ToggleButton on={loopAll} onClick={onToggleLoopAll} offVariant="outlined">Loop all</ToggleButton>
+          {!onBack && <ToggleButton on={loopAll} onClick={onToggleLoopAll} offVariant="outlined">Loop all</ToggleButton>}
           {/* Cycles Auto (follow the system), Light and Dark */}
           <Button
             size="small"
