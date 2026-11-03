@@ -2,7 +2,8 @@
 // traffic lines, and the hover highlight of the segments a site's congestion came from
 import { BLACK, congestionEnum, eventImpacts, trafficEnum } from '../consts';
 import { MATCHABLE_CLASS } from '../consts/trafficEnum';
-import { SITE_ICONS, signThumbnail } from '../utils';
+import { CHANGE_KEY, SITE_ICONS, signThumbnail } from '../utils';
+import countIcon, { COUNT_ICON } from './countIcon';
 import eventIcon from './eventIcon';
 import siteIcon from './siteIcon';
 import { BARB_MAX, BARB_STEP, barbIcons } from './windIcon';
@@ -116,8 +117,29 @@ export const WARNING_LAYERS = ['warning-areas', 'warning-outlines'];
 const firstRoadLayer = map => map.getStyle().layers.find(layer => layer['source-layer'] === 'transportation')?.id;
 
 // NZTA's traffic counting sites (utils/trafficCounts): a dot each, coloured by how its latest
-// week compares with a year before, and sized by its traffic
-export const COUNT_LAYERS = ['counts'];
+// week compares with a year before (and signed, and labelled when it's changed), and sized by its
+// traffic. Zoomed out, the sites at a place (a road's directions, an interchange's ramps) share a
+// dot; from SITES_ZOOM, each has its own (bar those at the very same spot), to hover singly.
+export const SITES_ZOOM = 16;
+export const COUNT_SETS = {
+  'traffic-counts': {
+    dots: 'counts', signs: 'count-signs', labels: 'count-labels', zooms: { maxzoom: SITES_ZOOM },
+  },
+  'traffic-count-sites': {
+    dots: 'count-sites', signs: 'count-site-signs', labels: 'count-site-labels', zooms: { minzoom: SITES_ZOOM },
+  },
+};
+export const COUNT_DOTS = Object.values(COUNT_SETS).map(set => set.dots);
+export const COUNT_LAYERS = Object.values(COUNT_SETS).flatMap(({ dots, signs, labels }) => [dots, signs, labels]);
+// Each counts layer's filter, leaving out the levels of change in `hidden` (as chosen in the key)
+export const countFilters = (hidden = []) => {
+  const shown = ['!', ['in', ['get', 'level'], ['literal', hidden]]];
+  return Object.fromEntries(Object.values(COUNT_SETS).flatMap(({ dots, signs, labels }) => [
+    [dots, shown],
+    [signs, ['all', shown, ['!=', ['get', 'sign'], '']]],
+    [labels, ['all', shown, ['!=', ['get', 'label'], '']]],
+  ]));
+};
 
 // The congestion lines: on bridges, above the base map's bridges, and on other roads, under
 // them, so an overpass covers the road it crosses
@@ -284,9 +306,10 @@ export const addLayers = (map, traffic, dark, weather = false) => {
     type: 'symbol',
     source: 'signs',
     minzoom: 10,
-    // Small, so always shown, even overlapping other labels. At SIGN_FULL_ZOOM and beyond, full
-    // signs cover their icons; an icon still shows where its full sign is crowded out.
-    layout: { 'icon-image': 'sign-icon', 'icon-allow-overlap': true, 'icon-ignore-placement': true },
+    // Small, so always shown, even overlapping other labels (which move or drop out around it, as
+    // for our other icons). At SIGN_FULL_ZOOM and beyond, full signs cover their icons; an icon
+    // still shows where its full sign is crowded out.
+    layout: { 'icon-image': 'sign-icon', 'icon-allow-overlap': true },
   });
   map.addLayer({
     id: 'cameras',
@@ -294,8 +317,11 @@ export const addLayers = (map, traffic, dark, weather = false) => {
     source: 'cameras',
     layout: {
       'icon-image': ['get', 'icon'],
+      // Half size zoomed out to the country, so they don't bury the map; full size from a city
+      'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 11, 1],
+      // Always shown; the base map's labels and highway shields (placed after, being under)
+      // move or drop out around them, rather than showing underneath
       'icon-allow-overlap': true,
-      'icon-ignore-placement': true,
       'icon-rotation-alignment': 'map', // Keep the north quarter pointing north
       'icon-pitch-alignment': 'viewport', // Stand upright when the map is tilted, rather than lying flat
       'text-field': ['get', 'name'],
@@ -312,20 +338,72 @@ export const addLayers = (map, traffic, dark, weather = false) => {
       'text-halo-width': 1.6,
     },
   });
-  // Counting sites, above the camera sites: they're often at the same spot, and smaller
-  map.addSource('traffic-counts', { type: 'geojson', data: EMPTY, attribution: NZTA_COUNTS_ATTRIBUTION });
-  const radius = ['get', 'radius'];
-  map.addLayer({
-    id: 'counts',
-    type: 'circle',
-    source: 'traffic-counts',
-    layout: { visibility: 'none', 'circle-sort-key': ['get', 'order'] },
-    paint: {
-      'circle-color': ['get', 'colour'],
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, ['*', radius, 0.5], 10, radius, 14, ['*', radius, 1.5]],
-      'circle-stroke-color': dark ? '#0e1317' : 'white',
-      'circle-stroke-width': 1.5,
-    },
+  // Counting sites, above the camera sites: they're often at the same spot, and smaller. Zoomed out,
+  // a dot for each place; from SITES_ZOOM, a dot for each site (one direction), to hover singly.
+  // A dot's radius (px) at each zoom, and something in proportion to it: `px => …`
+  const byRadius = (scale = r => r) => ['interpolate', ['linear'], ['zoom'],
+    ...[[5, 0.5], [10, 1], [14, 1.25]].flatMap(([zoom, factor]) => [zoom, scale(['*', ['get', 'radius'], factor])])];
+  const filters = countFilters();
+  CHANGE_KEY.forEach(([level]) => map.addImage(`count-${level}`, countIcon(level, dark), { pixelRatio: 2 }));
+  Object.entries(COUNT_SETS).forEach(([source, {
+    dots, signs, labels: changes, zooms,
+  }]) => {
+    map.addSource(source, { type: 'geojson', data: EMPTY, attribution: NZTA_COUNTS_ATTRIBUTION });
+    // A rounded square (countIcon) for each: always shown, and the base map's labels give way
+    map.addLayer({
+      id: dots,
+      type: 'symbol',
+      source,
+      ...zooms,
+      filter: filters[dots],
+      layout: {
+        visibility: 'none',
+        'icon-image': ['concat', 'count-', ['get', 'level']],
+        // As wide as about 1.8 radii inside its outline: the area of a circle of that radius
+        'icon-size': byRadius(r => ['/', ['*', 1.8, r], (COUNT_ICON - 6) / 2]),
+        'icon-allow-overlap': true,
+        'symbol-sort-key': ['get', 'order'], // Bigger changes on top
+      },
+    });
+    // The dot's + or −, once dots are big enough to hold one
+    map.addLayer({
+      id: signs,
+      type: 'symbol',
+      source,
+      ...zooms,
+      minzoom: Math.max(7, zooms.minzoom ?? 0),
+      filter: filters[signs],
+      layout: {
+        visibility: 'none',
+        'text-field': ['get', 'sign'],
+        'text-font': FONT,
+        'text-size': byRadius(r => ['*', r, 1.8]),
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
+      },
+      // Not on dots too small to read it on
+      paint: { 'text-color': ['get', 'ink'], 'text-opacity': byRadius(r => ['case', ['<', r, 4.5], 0, 1]) },
+    });
+    // The change beside it ("+12%"), zoomed in: only where it isn't about the same, and the biggest
+    // changes first where they'd collide
+    map.addLayer({
+      id: changes,
+      type: 'symbol',
+      source,
+      ...zooms,
+      minzoom: Math.max(9, zooms.minzoom ?? 0),
+      filter: filters[changes],
+      layout: {
+        visibility: 'none',
+        'text-field': ['get', 'label'],
+        'text-font': FONT,
+        'text-size': 11,
+        'text-variable-anchor': ['left', 'right', 'top', 'bottom'],
+        'text-radial-offset': byRadius(r => ['/', ['+', r, 3], 11]), // ems: just clear of the dot
+        'symbol-sort-key': ['-', ['get', 'order']],
+      },
+      paint: { 'text-color': labels.text, 'text-halo-color': labels.halo, 'text-halo-width': 1.6 },
+    });
   });
 
   // Road events, above the camera sites so an incident is never hidden; closures on top
@@ -335,8 +413,7 @@ export const addLayers = (map, traffic, dark, weather = false) => {
     source: 'event-icons',
     layout: {
       'icon-image': ['concat', 'event-', ['get', 'impact']],
-      'icon-allow-overlap': true,
-      'icon-ignore-placement': true,
+      'icon-allow-overlap': true, // Labels under it give way (see the cameras)
       'icon-size': ['interpolate', ['linear'], ['zoom'], 6, 0.7, 12, 1],
       'symbol-sort-key': ['-', 3, byImpact('rank', 3)], // Higher keys draw on top
     },

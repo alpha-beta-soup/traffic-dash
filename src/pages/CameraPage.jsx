@@ -10,8 +10,10 @@ import Typography from '@mui/material/Typography';
 import CameraMap from '../components/CameraMap';
 import CameraPlaceholder from '../components/CameraPlaceholder';
 import CameraWeather from '../components/CameraWeather';
+import ErrorBoundary from '../components/ErrorBoundary';
 import EventDetails, { impactOf } from '../components/EventDetails';
 import LedSign from '../components/LedSign';
+import NearbyCounts from '../components/NearbyCounts';
 import WarningDetails from '../components/WarningDetails';
 import ToggleButton from '../components/ToggleButton';
 import VehicleTrend from '../components/VehicleTrend';
@@ -495,18 +497,21 @@ function CameraView({
               <VehicleTrend counts={vehicleCounts} cursor={time ? time.getTime() : null} />
             </Paper>
           )}
+          <NearbyCounts camera={camera} />
           {config.mapStyle && (
-            <CameraMap
-              camera={camera}
-              cameras={cameras}
-              events={events}
-              signs={signs}
-              warnings={warnings}
-              styleUrl={dark ? config.mapStyleDark : config.mapStyle}
-              dark={dark}
-              traffic={config.traffic}
-              onMoveEnd={onMapMoveEnd}
-            />
+            <ErrorBoundary name="The map" sx={{ mt: 2 }}>
+              <CameraMap
+                camera={camera}
+                cameras={cameras}
+                events={events}
+                signs={signs}
+                warnings={warnings}
+                styleUrl={dark ? config.mapStyleDark : config.mapStyle}
+                dark={dark}
+                traffic={config.traffic}
+                onMoveEnd={onMapMoveEnd}
+              />
+            </ErrorBoundary>
           )}
           <GettingAround camera={camera} cameras={cameras} />
           <SignsNearby camera={camera} signs={signs} />

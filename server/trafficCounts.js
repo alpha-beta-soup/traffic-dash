@@ -2,10 +2,11 @@
 // and their daily counts, from its open data (licensed Creative Commons BY 4.0). Each site is a
 // direction (or a ramp) at a place, counted by loops in the road. The permanent ones send their
 // counts in weekly or so, so the latest are days old: enough to show a road that has been busier
-// or quieter than usual for a while (a detour, a closure), not what's happening now. "Usual" is the
-// same days a year before (52 weeks, so the weekdays line up): unlike the weeks just before, that
-// doesn't come to take a long disruption as normal.
+// or quieter for a while (a detour, a closure), not what's happening now. Busier or quieter than
+// the same days a year before (52 weeks, so the weekdays line up): unlike the weeks just before,
+// that doesn't come to take a long disruption as normal.
 //   https://opendata-nzta.opendata.arcgis.com/ (TMS daily traffic counts)
+import { anniversaryOf, holidaysAt } from '../shared/holidays.js';
 
 const SERVICES = 'https://services.arcgis.com/CXBb7LAjgIIdcsPt/arcgis/rest/services';
 export const SITES_URL = `${SERVICES}/Assets_SHTrafficMonitoringSites/FeatureServer/0/query`;
@@ -24,10 +25,19 @@ export const PERIODS = { week: 7, month: 28 };
 
 const isoDate = ms => new Date(ms).toISOString().slice(0, 10);
 
-const request = async (fetchJson, url, params) => {
-  const body = await fetchJson(`${url}?${new URLSearchParams({ ...params, f: 'json' })}`);
-  if (body.error) throw new Error(`${new URL(url).pathname}: ${body.error.message}`);
-  return body;
+const TRIES = 3; // A busy service fails the odd request (a timeout, or an error with no message)
+const RETRY_DELAY = 2000; // ms, doubling
+
+const request = async (fetchJson, url, params, tries = TRIES) => {
+  try {
+    const body = await fetchJson(`${url}?${new URLSearchParams({ ...params, f: 'json' })}`);
+    if (body.error) throw new Error(`${new URL(url).pathname}: ${body.error.message || `error ${body.error.code}`}`);
+    return body;
+  } catch (err) {
+    if (tries <= 1) throw err;
+    await new Promise(resolve => { setTimeout(resolve, RETRY_DELAY * 2 ** (TRIES - tries)); });
+    return request(fetchJson, url, params, tries - 1);
+  }
 };
 
 // Every row an ArcGIS query matches, as its attributes (and lat, lon for points): counted first,
@@ -48,17 +58,19 @@ async function query(fetchJson, url, params) {
   return pages.flat();
 }
 
-// The counting sites, by reference: { ref, name, highway, lat, lon, aadt } with aadt the average
-// daily traffic in each of the last five years, oldest first (null where not counted)
+// The counting sites, by reference: { ref, name, highway, region, lat, lon, aadt } with region
+// NZTA's ("09 - Wellington"), and aadt the average daily traffic in each of the last five years,
+// oldest first (null where not counted)
 export async function fetchSites(fetchJson) {
   const years = ['aadt5yearsago', 'aadt4yearsago', 'aadt3yearsago', 'aadt2yearsago', 'aadt1yearago'];
   const rows = await query(fetchJson, SITES_URL, {
-    where: '1=1', outFields: ['siteref', 'description', 'sh', ...years].join(','), outSR: 4326, orderByFields: 'OBJECTID',
+    where: '1=1', outFields: ['siteref', 'description', 'sh', 'region', ...years].join(','), outSR: 4326, orderByFields: 'OBJECTID',
   });
   return new Map(rows.filter(row => row.siteref && row.lat !== undefined).map(row => [row.siteref, {
     ref: row.siteref,
     name: row.description?.trim() ?? row.siteref,
     highway: row.sh,
+    region: row.region ?? null,
     lat: row.lat,
     lon: row.lon,
     aadt: years.map(year => row[year] || null),
@@ -92,23 +104,34 @@ const byDay = (rows, shift = 0) => {
   return sites;
 };
 
-// The change over the last `days` days of `series` ([{ total, lastYear }], oldest first) from a
-// year before, as a fraction (0.1 is 10% busier), or null without enough days counted both years
+// The change over the last `days` days of `series` ([{ total, lastYear, holiday, lastYearHoliday }],
+// oldest first) from a year before, as a fraction (0.1 is 10% busier), or null without enough
+// days counted both years. Public holidays either year are left out: some move (Easter, by up to
+// five weeks), so would otherwise make a week look much quieter, then one much busier.
 export function change(series, days) {
-  const paired = series.slice(-days).filter(d => d.total !== null && d.lastYear !== null);
+  const paired = series.slice(-days)
+    .filter(d => d.total !== null && d.lastYear !== null && !d.holiday && !d.lastYearHoliday);
   if (paired.length < days / 2) return null;
   const before = paired.reduce((sum, d) => sum + d.lastYear, 0);
   return before > 0 ? paired.reduce((sum, d) => sum + d.total, 0) / before - 1 : null;
 }
 
 // Each site with recent counts: its place, its latest day, its change from a year before over the
-// latest week and four weeks, and its daily counts ({ date, total, heavy, lastYear }) for the last
-// SHOWN_DAYS days to its latest. A day missing a lane (fewer rows than the site's usual) counts as
-// not counted, rather than as a quiet day.
+// latest week and four weeks, and its daily counts ({ date, total, heavy, lastYear, holiday,
+// lastYearHoliday }, the holidays named or null) for the last SHOWN_DAYS days to its latest. A day
+// missing a lane (fewer rows than the site's usual) counts as not counted, rather than as a quiet day.
 export function summarise(sites, recentRows, lastYearRows, today) {
   const recent = byDay(recentRows);
   const lastYear = byDay(lastYearRows, YEAR);
   const oldest = isoDate(today - STALE_DAYS * DAY);
+  // A site's holiday on a date, if any: holidays by its anniversary day and year, worked out once
+  const holidays = new Map();
+  const holidayAt = (site, ms) => {
+    const year = new Date(ms).getUTCFullYear();
+    const key = `${anniversaryOf(site)}:${year}`;
+    if (!holidays.has(key)) holidays.set(key, holidaysAt(site, year));
+    return holidays.get(key).get(isoDate(ms)) ?? null;
+  };
   return [...recent].flatMap(([ref, days]) => {
     const site = sites.get(ref);
     const before = lastYear.get(ref) ?? new Map();
@@ -118,10 +141,16 @@ export function summarise(sites, recentRows, lastYearRows, today) {
     const latest = counted.at(-1);
     if (!site || !latest || latest < oldest) return [];
     const series = Array.from({ length: SHOWN_DAYS }, (_, i) => {
-      const date = isoDate(Date.parse(latest) - (SHOWN_DAYS - 1 - i) * DAY);
+      const ms = Date.parse(latest) - (SHOWN_DAYS - 1 - i) * DAY;
+      const date = isoDate(ms);
       const day = complete(days.get(date));
       return {
-        date, total: day?.total ?? null, heavy: day?.heavy ?? null, lastYear: complete(before.get(date))?.total ?? null,
+        date,
+        total: day?.total ?? null,
+        heavy: day?.heavy ?? null,
+        lastYear: complete(before.get(date))?.total ?? null,
+        holiday: holidayAt(site, ms),
+        lastYearHoliday: holidayAt(site, ms - YEAR),
       };
     });
     return [{

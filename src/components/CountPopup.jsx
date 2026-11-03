@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { useTheme } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
 
 import MapPopup from './MapPopup';
 import { seriesColour } from './VehicleTrend';
@@ -27,10 +27,25 @@ const fetchDetails = (site) => {
 };
 
 const W = 280;
-const H = 64;
+const TIGHT = { lineHeight: 1.3 };
+const SHOWN_DAYS = 35; // Of each site's daily counts, as the server sends them (server/trafficCounts.js)
+const DAY = 86_400_000;
 
-// The site's daily counts (a line, gaps where not counted) over the same days a year before (dashed)
-function DailyChart({ days }) {
+const isWeekend = iso => [0, 6].includes(new Date(iso).getUTCDay());
+
+// Each weekend in `days` as [first, last] indexes (cut short at either end of the chart)
+const weekends = days => days.reduce((runs, d, i) => {
+  if (!isWeekend(d.date)) return runs;
+  if (runs.length && runs.at(-1)[1] === i - 1) runs.at(-1)[1] = i;
+  else runs.push([i, i]);
+  return runs;
+}, []);
+
+// The site's daily counts (a line, gaps where not counted) over the same days a year before
+// (dashed), on shaded weekends: traffic dips at the weekend, more so than most real changes. Public
+// holidays are amber, and paler for one only the year before (moving ones, like Easter); they're
+// left out of the comparison.
+function DailyChart({ days, height: H }) {
   const theme = useTheme();
   const top = Math.max(1, ...days.flatMap(d => [d.total, d.lastYear]).filter(v => v !== null));
   const x = i => (i / (days.length - 1)) * W;
@@ -38,68 +53,141 @@ function DailyChart({ days }) {
   const path = key => days
     .map((d, i) => (d[key] === null ? null : `${x(i)},${y(d[key])}`))
     .reduce((parts, point, i) => (point === null ? parts : `${parts}${i && days[i - 1][key] !== null ? 'L' : 'M'}${point}`), '');
-  const tick = { fill: theme.palette.text.secondary, fontSize: 10 };
+  const half = W / (days.length - 1) / 2; // Half a day's width, either side of its point
+  const dark = theme.palette.mode === 'dark';
+  const band = (i, fill, title) => {
+    const left = Math.max(0, x(i) - half);
+    return (
+      <rect key={`${i}${title}`} x={left} y={0} width={Math.min(W, x(i) + half) - left} height={H} fill={fill}>
+        <title>{title}</title>
+      </rect>
+    );
+  };
   return (
     <svg
-      viewBox={`0 -12 ${W} ${H + 26}`}
+      viewBox={`0 0 ${W} ${H}`}
       style={{ width: '100%', height: 'auto', display: 'block' }}
       role="img"
-      aria-label="Vehicles a day over five weeks, and the same days a year before"
+      aria-label="Vehicles a day over five weeks, and the same days a year before, with weekends and public holidays shaded"
     >
+      {weekends(days).map(([first, last]) => {
+        const left = Math.max(0, x(first) - half);
+        return <rect key={first} x={left} y={0} width={Math.min(W, x(last) + half) - left} height={H} fill={theme.palette.action.selected} />;
+      })}
+      {days.map((d, i) => {
+        if (d.holiday) return band(i, alpha(theme.palette.warning.main, dark ? 0.3 : 0.22), d.holiday);
+        if (d.lastYearHoliday) return band(i, alpha(theme.palette.warning.main, dark ? 0.14 : 0.1), `${d.lastYearHoliday}, a year before`);
+        return null;
+      })}
       <line x1={0} x2={W} y1={H} y2={H} stroke={theme.palette.divider} />
-      <text x={0} y={-3} style={tick}>{number.format(Math.round(top))}</text>
       <path d={path('lastYear')} fill="none" stroke={theme.palette.text.secondary} strokeWidth={1.5} strokeDasharray="3 3" />
-      <path d={path('total')} fill="none" stroke={seriesColour(theme)} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-      <text x={0} y={H + 12} style={tick}>{day(days[0].date)}</text>
-      <text x={W} y={H + 12} textAnchor="end" style={tick}>{day(days.at(-1).date)}</text>
+      <path d={path('total')} fill="none" stroke={seriesColour(theme)} strokeWidth={1.25} strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }
 
-function CountDetails({ site }) {
-  const theme = useTheme();
+// "NGAURANGA SH1 - Telemetry Site 3 - SB" → "NGAURANGA SH1 - Site 3 - SB"
+const shortName = name => name.replace(/\bTelemetry Site\b/i, 'Site');
+
+// A site's daily counts, fetched with its row
+function useDays(site) {
   const [days, setDays] = useState(null);
   useEffect(() => {
     let current = true;
     fetchDetails(site).then(full => current && setDays(full.days)).catch(() => {});
     return () => { current = false; };
   }, [site]);
+  return days;
+}
+
+// One site: its name and change on a line, the details under it, and its five weeks charted
+function CountRow({ site, chartHeight, showLatest }) {
+  const theme = useTheme();
+  const days = useDays(site);
   const change = siteChange(site);
   const level = changeLevel(change);
-  let period = 'Too few days counted, this year or last, to compare';
-  if (site.week !== null) period = `Week to ${day(site.latest)}, against the same days a year before${site.month !== null ? `; four weeks ${formatChange(site.month)}` : ''}`;
-  else if (site.month !== null) period = `Four weeks to ${day(site.latest)}, against the same days a year before`;
   const average = site.aadt.findLast(v => v);
+  // The change in bold is the week's (as on the map), or the four weeks' without one; the four
+  // weeks' also goes under the week's, steadier
+  const headline = site.week !== null ? `Week ${formatChange(site.week)}` : site.month !== null && `4 weeks ${formatChange(site.month)}`;
+  const details = [
+    site.week !== null && site.month !== null && `4 weeks ${formatChange(site.month)}`,
+    change === null && 'Too few days to compare',
+    showLatest && `to ${day(site.latest)}`,
+    average && `${number.format(average)} a day last year`,
+  ].filter(Boolean);
   return (
     <Box>
-      <Typography variant="subtitle2" sx={{ lineHeight: 1.3 }}>{site.name}</Typography>
-      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-        {site.highway && `SH${site.highway} · `}Counted to {day(site.latest)}
-      </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5 }}>
-        <Box sx={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, bgcolor: changeColour(level, theme.palette.mode === 'dark') }} />
-        <Typography variant="body2">
-          <b>{CHANGE_LABELS[level]}</b>
-          {change !== null && `: ${formatChange(change)}`}
-        </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
+        <Box
+          role="img"
+          aria-label={CHANGE_LABELS[level]}
+          sx={{ width: 9, height: 9, borderRadius: '2px', flexShrink: 0, bgcolor: changeColour(level, theme.palette.mode === 'dark') }}
+        />
+        <Typography variant="body2" sx={{ ...TIGHT, fontWeight: 500, flex: 1 }}>{shortName(site.name)}</Typography>
+        <Typography variant="body2" sx={{ ...TIGHT, fontWeight: 700, whiteSpace: 'nowrap' }}>{headline || '–'}</Typography>
       </Box>
-      <Typography variant="caption" component="p" sx={{ color: 'text.secondary', mb: 0.5 }}>{period}</Typography>
-      {days ? <DailyChart days={days} /> : <Box sx={{ height: 80 }} />}
-      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-        Vehicles a day: line, this year; dashed, a year before.
-        {average && ` Average last year ${number.format(average)}.`}
+      <Typography variant="caption" component="p" sx={{ ...TIGHT, color: 'text.secondary', ml: 2, mb: 0.25 }}>
+        {details.join(' · ')}
       </Typography>
+      {days ? <DailyChart days={days} height={chartHeight} /> : <Box sx={{ height: chartHeight }} />}
     </Box>
   );
 }
 
-// The counting sites at a hovered place (often both directions of a road)
+// The charts' key, each mark drawn as it is in them
+function ChartKey() {
+  const theme = useTheme();
+  const dark = theme.palette.mode === 'dark';
+  const line = props => <line x1={1} x2={17} y1={5} y2={5} strokeWidth={2} strokeLinecap="round" {...props} />;
+  const block = fill => <rect x={4} y={0} width={10} height={10} fill={fill} />;
+  const marks = [
+    [line({ stroke: seriesColour(theme), strokeWidth: 1.25 }), 'This year'],
+    [line({ stroke: theme.palette.text.secondary, strokeWidth: 1.5, strokeDasharray: '3 3', strokeLinecap: 'butt' }), 'A year before'],
+    [block(theme.palette.action.selected), 'Weekend'],
+    [block(alpha(theme.palette.warning.main, dark ? 0.3 : 0.22)), 'Holiday'],
+  ];
+  return (
+    <Box component="ul" sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 1.25, rowGap: 0.25, m: 0, p: 0, listStyle: 'none' }}>
+      {marks.map(([mark, label]) => (
+        <Typography component="li" variant="caption" key={label} sx={{ ...TIGHT, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <svg width="18" height="10" aria-hidden="true">{mark}</svg>
+          {label}
+        </Typography>
+      ))}
+    </Box>
+  );
+}
+
+// The counting sites at a place, compactly: what they're compared with and the chart's key once,
+// each site's name, change and chart (smaller, the more there are, to fit a popup)
+export function CountList({ sites }) {
+  const latest = new Set(sites.map(site => site.latest));
+  const shared = latest.size === 1 ? sites[0].latest : null;
+  const caption = { ...TIGHT, color: 'text.secondary', display: 'block' };
+  return (
+    <Box>
+      <Typography variant="caption" sx={{ ...caption, mb: 0.75 }}>
+        Against the same days a year before{shared && `, to ${day(shared)}`}
+      </Typography>
+      {sites.map((site, i) => (
+        <Box key={site.ref} sx={{ mt: i ? 1 : 0 }}>
+          <CountRow site={site} chartHeight={sites.length > 2 ? 30 : 44} showLatest={!shared} />
+        </Box>
+      ))}
+      <Typography variant="caption" sx={{ ...caption, mt: 0.75 }}>
+        Vehicles a day{shared && `, ${day(Date.parse(shared) - (SHOWN_DAYS - 1) * DAY)} – ${day(shared)}`}
+      </Typography>
+      <ChartKey />
+    </Box>
+  );
+}
+
+// The counting sites at a hovered place (often both directions of a road, or an interchange's ramps)
 export default function CountPopup({ map, lngLat, sites }) {
   return (
-    <MapPopup map={map} lngLat={lngLat} sx={{ p: 1.5, width: 320 }}>
-      {sites.map((site, i) => (
-        <Box key={site.ref} sx={{ mt: i ? 2 : 0 }}><CountDetails site={site} /></Box>
-      ))}
+    <MapPopup map={map} lngLat={lngLat} sx={{ p: 1.25, width: 340 }}>
+      <CountList sites={sites} />
     </MapPopup>
   );
 }

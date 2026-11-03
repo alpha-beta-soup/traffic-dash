@@ -6,7 +6,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 
 export const DEFAULT_LAYERS = Object.freeze({
-  labels: true, signs: true, events: true, warnings: true, rain: false, wind: false, counts: false, traffic: true,
+  cameras: true, labels: true, signs: true, events: true, warnings: true, rain: false, wind: false, counts: false, traffic: true,
 });
 
 // Which optional map layers to show; 'traffic' and 'rain' are offered only when the server has
@@ -14,6 +14,7 @@ export const DEFAULT_LAYERS = Object.freeze({
 export default function LayersMenu({ layers, onChange, traffic, weather }) {
   const [anchor, setAnchor] = useState(null);
   const options = [
+    ['cameras', 'Cameras'],
     ['labels', 'Camera labels'],
     ['signs', 'Message signs'],
     ['events', 'Road events'],
@@ -43,6 +44,7 @@ export default function LayersMenu({ layers, onChange, traffic, weather }) {
             role="menuitemcheckbox"
             aria-checked={layers[key]}
             onClick={() => onChange({ ...layers, [key]: !layers[key] })}
+            disabled={key === 'labels' && !layers.cameras} // Labels go with the cameras
           >
             <Checkbox size="small" checked={layers[key]} tabIndex={-1} disableRipple sx={{ p: 0, mr: 1 }} />
             <ListItemText>{label}</ListItemText>

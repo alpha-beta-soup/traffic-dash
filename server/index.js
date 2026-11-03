@@ -230,9 +230,11 @@ app.get('/api/weather-warnings', handle(async (req, res) => {
 
 // NZTA's traffic counting sites, and how their latest counts compare with a year before. Counts
 // arrive weekly or so and take a while to fetch, so the last good copy is served while a newer
-// one is fetched in the background; sites change even less often.
-const getCountSites = memo(24 * 60 * 60_000, () => fetchCountSites(fetchJson));
-const getTrafficCounts = stale(6 * 60 * 60_000, async () => fetchTrafficCounts(fetchJson, await getCountSites()));
+// one is fetched in the background; sites change even less often. NZTA's ArcGIS can take well
+// over the usual timeout to add up the counts, so it gets longer.
+const fetchCounts = url => fetchJson(url, { signal: AbortSignal.timeout(60_000) });
+const getCountSites = memo(24 * 60 * 60_000, () => fetchCountSites(fetchCounts));
+const getTrafficCounts = stale(6 * 60 * 60_000, async () => fetchTrafficCounts(fetchCounts, await getCountSites()));
 
 // Every site, without its daily counts (those come with /api/traffic-counts/:ref)
 app.get('/api/traffic-counts', handle(async (req, res) => {

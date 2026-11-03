@@ -5,15 +5,17 @@ import Paper from '@mui/material/Paper';
 
 import CongestionLegend from './CongestionLegend';
 import CountPopup from './CountPopup';
+import CountsLegend from './CountsLegend';
 import EventPopup from './EventPopup';
 import LayersMenu from './LayersMenu';
 import MapPopup from './MapPopup';
 import SitePopup, { DIRECTION_ORDER } from './SitePopup';
 import WarningDetails from './WarningDetails';
 import useLatest from '../hooks/useLatest';
+import useStoredSetting from '../hooks/useStoredSetting';
 import {
-  COUNT_LAYERS, EMPTY, EVENT_LAYERS, RAIN_LAYER, RAIN_REFRESH, SIGN_LAYERS, TRAFFIC_LAYERS, WARNING_LAYERS, WIND_LAYERS, WIND_REFRESH,
-  addLayers, rainTiles, refreshWind, trafficOpacity, trafficTiles,
+  COUNT_DOTS, COUNT_LAYERS, EMPTY, EVENT_LAYERS, RAIN_LAYER, RAIN_REFRESH, SIGN_LAYERS, TRAFFIC_LAYERS, WARNING_LAYERS, WIND_LAYERS, WIND_REFRESH,
+  addLayers, countFilters, rainTiles, refreshWind, trafficOpacity, trafficTiles,
 } from '../map/layers';
 import {
   addSignHover, hideExpandedSign, setSigns, startSignPaging,
@@ -21,7 +23,7 @@ import {
 import maplibregl, { mapControlsDark } from '../map/maplibre';
 import { TRAFFIC_REFRESH } from '../consts';
 import {
-  cameraCongestion, countFeatures, filterCamerasByBbox, groupCameraSites, snapEvents, warningColour, warningFeatures, warningsAt,
+  SAME_SPOT, cameraCongestion, countFeatures, filterCamerasByBbox, groupCameraSites, snapEvents, warningColour, warningFeatures, warningsAt,
 } from '../utils';
 import { lines } from '../utils/geometry';
 
@@ -168,7 +170,7 @@ export default function Map({
     const siteIds = e => String(e.features[0].properties.cameraIds).split(',').map(Number);
     // A counting site's dot, drawn over the camera icon it's often beside, takes the pointer
     const onCountDot = e => map.getLayoutProperty('counts', 'visibility') === 'visible'
-      && map.queryRenderedFeatures(e.point, { layers: ['counts'] }).length > 0;
+      && map.queryRenderedFeatures(e.point, { layers: COUNT_DOTS }).length > 0;
     const leaveSite = () => {
       hoverKey.current = null;
       map.getCanvas().style.cursor = '';
@@ -213,24 +215,26 @@ export default function Map({
       setHoveredEvent(null);
     });
 
-    // Hovering a counting site shows how its traffic compares with a year before
-    map.on('mousemove', 'counts', (e) => {
-      if (minimisedRef.current) return;
-      // Read now: the event's features are gone by the time React runs the update
-      const { properties: { refs }, geometry: { coordinates: lngLat } } = e.features[0];
-      map.getCanvas().style.cursor = 'pointer';
-      setHoveredCounts(current => (current?.refs === refs ? current : { refs, lngLat }));
-    });
-    map.on('mouseleave', 'counts', () => {
-      map.getCanvas().style.cursor = '';
-      setHoveredCounts(null);
+    // Hovering a counting place (or site, zoomed in) shows how its traffic compares with a year before
+    COUNT_DOTS.forEach((id) => {
+      map.on('mousemove', id, (e) => {
+        if (minimisedRef.current) return;
+        // Read now: the event's features are gone by the time React runs the update
+        const { properties: { refs }, geometry: { coordinates: lngLat } } = e.features[0];
+        map.getCanvas().style.cursor = 'pointer';
+        setHoveredCounts(current => (current?.refs === refs ? current : { refs, lngLat }));
+      });
+      map.on('mouseleave', id, () => {
+        map.getCanvas().style.cursor = '';
+        setHoveredCounts(null);
+      });
     });
 
     // Clicking inside weather warning areas (other than on an icon) shows those warnings; clicking
     // anywhere else closes them. A click rather than a hover: the areas are large.
     map.on('click', (e) => {
       if (minimisedRef.current) return;
-      const icons = ['cameras', 'events', 'signs', 'counts'].filter(id => map.getLayer(id));
+      const icons = ['cameras', 'events', 'signs', ...COUNT_DOTS].filter(id => map.getLayer(id));
       if (map.queryRenderedFeatures(e.point, { layers: icons }).length) return;
       const lngLat = [e.lngLat.lng, e.lngLat.lat];
       const found = map.getLayer('warning-areas') && map.queryRenderedFeatures(e.point, { layers: ['warning-areas'] }).length
@@ -294,7 +298,14 @@ export default function Map({
   useEffect(() => {
     const map = mapRef.current;
     if (!loaded) return;
+    map.setLayoutProperty('cameras', 'visibility', layers.cameras ? 'visible' : 'none');
     map.setLayoutProperty('cameras', 'text-field', layers.labels ? ['get', 'name'] : '');
+    if (!layers.cameras && hoverKey.current) { // Hidden under the pointer: let go of the site
+      hoverKey.current = null;
+      map.getCanvas().style.cursor = '';
+      map.getSource('matched').setData(EMPTY);
+      setHovered(null);
+    }
     SIGN_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.signs ? 'visible' : 'none'));
     EVENT_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.events ? 'visible' : 'none'));
     WARNING_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.warnings ? 'visible' : 'none'));
@@ -327,8 +338,19 @@ export default function Map({
   }, [loaded, warnings]);
 
   useEffect(() => {
-    if (loaded) mapRef.current.getSource('traffic-counts').setData(countFeatures(trafficCounts, dark));
+    if (!loaded) return;
+    mapRef.current.getSource('traffic-counts').setData(countFeatures(trafficCounts, dark));
+    mapRef.current.getSource('traffic-count-sites').setData(countFeatures(trafficCounts, dark, SAME_SPOT));
   }, [loaded, trafficCounts, dark]);
+
+  // The levels of change hidden from the counts (clicked off in their key)
+  const [hiddenLevels, setHiddenLevels] = useStoredSetting('count-levels-hidden', []);
+  useEffect(() => {
+    if (!loaded) return;
+    Object.entries(countFilters(hiddenLevels)).forEach(([id, filter]) => mapRef.current.setFilter(id, filter));
+    setHoveredCounts(null);
+  }, [loaded, hiddenLevels]);
+  const toggleLevel = level => setHiddenLevels(hidden => (hidden.includes(level) ? hidden.filter(l => l !== level) : [...hidden, level]));
 
   useEffect(() => {
     if (loaded) setSigns(mapRef.current, signs);
@@ -381,7 +403,15 @@ export default function Map({
           minHeight: minimised ? 'calc(25.5vh + 8px)' : undefined,
         }}
       />
-      {traffic && layers.traffic && !minimised && <CongestionLegend />}
+      {!minimised && (
+        <Box sx={{
+          position: 'absolute', left: 10, bottom: 26, zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1,
+        }}
+        >
+          {layers.counts && trafficCounts.length > 0 && <CountsLegend sites={trafficCounts} hidden={hiddenLevels} onToggle={toggleLevel} />}
+          {traffic && layers.traffic && <CongestionLegend />}
+        </Box>
+      )}
       {hovered && !minimised && mapRef.current && <SitePopup map={mapRef.current} {...hovered} />}
       {clickedWarnings && !minimised && mapRef.current && (
         <MapPopup

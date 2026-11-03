@@ -7,6 +7,7 @@ import { ThemeProvider } from '@mui/material/styles';
 
 import AppBar from './components/AppBar';
 import Camera from './components/Camera';
+import ErrorBoundary from './components/ErrorBoundary';
 import ErrorSnackbar from './components/ErrorSnackbar';
 import { DEFAULT_LAYERS } from './components/LayersMenu';
 import TrafficMap from './components/Map';
@@ -193,29 +194,31 @@ export default function App() {
             {/* Minimised, the map takes a card's place at the start of the grid (same element, so it isn't recreated) */}
             <Grid size={mapMinimised ? CARD_SIZE : 12}>
               {config && (
-                <TrafficMap
-                  styleUrl={mode === 'dark' ? config.mapStyleDark : config.mapStyle}
-                  dark={mode === 'dark'}
-                  traffic={config.traffic}
-                  weather={config.weather}
-                  cameras={cameras}
-                  signs={signs}
-                  events={events}
-                  warnings={warnings}
-                  trafficCounts={trafficCounts}
-                  centre={centre}
-                  congestion={congestion}
-                  isShown={passesFilter}
-                  minimised={mapMinimised}
-                  onBoundsChange={setBounds}
-                  onSiteClick={toggleSitePins}
-                  onCongestion={updateCongestion}
-                  onToggleMinimised={() => setMapMinimised(on => !on)}
-                  layers={mapLayers}
-                  onLayersChange={setMapLayers}
-                  initialView={mapView}
-                  onViewChange={setMapView}
-                />
+                <ErrorBoundary name="The map" sx={{ height: mapMinimised ? '100%' : '46.5vh' }}>
+                  <TrafficMap
+                    styleUrl={mode === 'dark' ? config.mapStyleDark : config.mapStyle}
+                    dark={mode === 'dark'}
+                    traffic={config.traffic}
+                    weather={config.weather}
+                    cameras={cameras}
+                    signs={signs}
+                    events={events}
+                    warnings={warnings}
+                    trafficCounts={trafficCounts}
+                    centre={centre}
+                    congestion={congestion}
+                    isShown={passesFilter}
+                    minimised={mapMinimised}
+                    onBoundsChange={setBounds}
+                    onSiteClick={toggleSitePins}
+                    onCongestion={updateCongestion}
+                    onToggleMinimised={() => setMapMinimised(on => !on)}
+                    layers={mapLayers}
+                    onLayersChange={setMapLayers}
+                    initialView={mapView}
+                    onViewChange={setMapView}
+                  />
+                </ErrorBoundary>
               )}
             </Grid>
             {shown.map(camera => (
