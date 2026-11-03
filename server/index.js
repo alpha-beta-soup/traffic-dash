@@ -6,6 +6,8 @@ import { cacheDir, listFrames } from './cache.js';
 import darkStyle from './darkStyle.js';
 import { getImage, showingPlaceholder } from './images.js';
 import { normaliseCamera, normaliseEvent, normaliseSign } from './normalise.js';
+import { inNz, tileInNz } from './nz.js';
+import rateLimit from './rateLimit.js';
 import { cameraRoute, normaliseJourneys } from './routes.js';
 import { vehicleCounts, vehiclesEnabled } from './vehicles.js';
 import {
@@ -25,8 +27,20 @@ const TRAFFICNZ_API = `${TRAFFICNZ}/service/traffic/rest/4`;
 const PORT = Number(process.env.PORT) || 3000;
 const MAP_STYLE = process.env.MAP_STYLE || 'https://tiles.openfreemap.org/styles/liberty';
 const MAP_STYLE_DARK_PATH = '/api/map-style/dark';
+const PRODUCTION = process.env.NODE_ENV === 'production';
+// Each client's requests to /api: a burst of this many, then this many a second. A screen of cards
+// and a map pan stay well within it.
+const RATE_BURST = 300;
+const RATE_PER_SECOND = 10;
+const WEATHER_TTL = 10 * 60_000; // Weather is shared between viewers of the same place this long
+// A blank tile, for rain outside New Zealand
+const BLANK_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
 
 const app = express();
+app.disable('x-powered-by');
+// Behind a reverse proxy (e.g. Caddy), how many hops of X-Forwarded-For to trust, so each
+// client's own address is what's rate limited: 1 for one proxy. Off (direct connections) unless set.
+if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
 
 // Cross-origin isolation, so the wind layer (Open-Meteo's map layer) can share its weather data
 // with its workers rather than copy it for each tile. 'credentialless' rather than 'require-corp':
@@ -35,8 +49,13 @@ const ISOLATION_HEADERS = {
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'credentialless',
 };
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'X-Frame-Options': 'DENY',
+};
 app.use((req, res, next) => {
-  res.set(ISOLATION_HEADERS);
+  res.set({ ...ISOLATION_HEADERS, ...SECURITY_HEADERS });
   next();
 });
 
@@ -104,6 +123,13 @@ const getSigns = memo(60_000, async () => {
 });
 
 const handle = fn => (req, res, next) => fn(req, res).catch(next);
+
+// For a container's or host's health check: up, and whether the vehicle counter is
+app.get('/api/health', handle(async (req, res) => {
+  res.set('Cache-Control', 'no-store').json({ ok: true, vehicles: await vehiclesEnabled() });
+}));
+
+app.use('/api', rateLimit({ burst: RATE_BURST, perSecond: RATE_PER_SECOND }));
 
 app.get('/api/config', handle(async (req, res) => {
   res.json({
@@ -186,12 +212,29 @@ app.get('/api/cameras/:id/vehicles', handle(async (req, res) => {
   res.json(await vehicleCounts(req.params.id, Date.now() - hours * 3600_000));
 }));
 
+// The weather at a place in New Zealand, shared between everyone asking about the same place
+// (to about 1 km) for WEATHER_TTL
+const weather = new Map(); // 'lat,lon' -> { promise, expires }
+const getWeather = (lat, lon) => {
+  const place = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+  const now = Date.now();
+  for (const [key, entry] of weather) if (entry.expires < now) weather.delete(key);
+  if (!weather.has(place)) {
+    const params = new URLSearchParams({
+      lat: lat.toFixed(2), lon: lon.toFixed(2), units: 'metric', appid: process.env.OPENWEATHERMAP_APIKEY,
+    });
+    const promise = fetchJson(`https://api.openweathermap.org/data/2.5/weather?${params}`);
+    promise.catch(() => weather.delete(place)); // Retry next time
+    weather.set(place, { promise, expires: now + WEATHER_TTL });
+  }
+  return weather.get(place).promise;
+};
+
 app.get('/api/weather', handle(async (req, res) => {
-  const key = process.env.OPENWEATHERMAP_APIKEY;
-  if (!key) return res.sendStatus(204);
-  const { lat, lon } = req.query;
-  const params = new URLSearchParams({ lat, lon, units: 'metric', appid: key });
-  res.json(await fetchJson(`https://api.openweathermap.org/data/2.5/weather?${params}`));
+  if (!process.env.OPENWEATHERMAP_APIKEY) return res.sendStatus(204);
+  const [lat, lon] = [req.query.lat, req.query.lon].map(Number);
+  if (!inNz(lat, lon)) return res.sendStatus(400);
+  res.json(await getWeather(lat, lon));
 }));
 
 app.get('/api/weather-tiles/:layer/:z/:x/:y.png', handle(async (req, res) => {
@@ -202,7 +245,7 @@ app.get('/api/weather-tiles/:layer/:z/:x/:y.png', handle(async (req, res) => {
   if (![z, x, y].every(Number.isInteger) || z < 0 || z > WEATHER_MAX_ZOOM || x < 0 || y < 0 || x >= max || y >= max) {
     return res.sendStatus(400);
   }
-  const tile = await getWeatherTile(layer, z, x, y);
+  const tile = tileInNz(z, x, y) ? await getWeatherTile(layer, z, x, y) : BLANK_PNG;
   res.set({ 'Content-Type': 'image/png', 'Cache-Control': `public, max-age=${WEATHER_TILE_TTL / 1000}` });
   res.send(tile);
 }));
@@ -214,7 +257,7 @@ app.get('/api/traffic-tiles/:z/:x/:y.pbf', handle(async (req, res) => {
   if (![z, x, y].every(Number.isInteger) || z < TILE_MIN_ZOOM || z > TILE_MAX_ZOOM || x < 0 || y < 0 || x >= max || y >= max) {
     return res.sendStatus(400);
   }
-  const tile = await getTile(z, x, y);
+  const tile = tileInNz(z, x, y) ? await getTile(z, x, y) : null;
   if (!tile) return res.sendStatus(204);
   res.set({ 'Content-Type': 'application/x-protobuf', 'Cache-Control': `public, max-age=${TILE_TTL / 1000}` });
   res.send(tile);
@@ -224,13 +267,28 @@ app.use('/cache', express.static(cacheDir, { maxAge: '1h' }));
 
 // In production, serve the built client too, including at its page addresses (e.g. a camera's
 // page at /camera/714), which are handled in the browser
-app.use(express.static(path.join(root, 'dist')));
-app.get('/camera/:id', (req, res) => res.sendFile(path.join(root, 'dist', 'index.html')));
+// page at /camera/714), which are handled in the browser. Built files are named by their content,
+// so can be kept for good; the page itself is checked each time, so it always loads the latest.
+const IMMUTABLE = 'public, max-age=31536000, immutable';
+app.use(express.static(path.join(root, 'dist'), {
+  setHeaders: (res, file) => res.set('Cache-Control', file.includes(`${path.sep}assets${path.sep}`) ? IMMUTABLE : 'no-cache'),
+}));
+app.get('/camera/:id', (req, res) => res.set('Cache-Control', 'no-cache').sendFile(path.join(root, 'dist', 'index.html')));
 
+// Upstream errors are logged in full; in production the browser is told only that something
+// failed, not what or where
 app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
-  console.error(err.message);
-  res.status(err.status >= 400 ? 502 : 500).json({ error: err.message });
+  console.error(`${req.method} ${req.originalUrl}: ${err.message}`);
+  res.status(err.status >= 400 ? 502 : 500).json({ error: PRODUCTION ? 'Request failed' : err.message });
 });
 
-app.listen(PORT, () => console.log(`traffic-dash server on http://localhost:${PORT}`));
+const server = app.listen(PORT, () => console.log(`traffic-dash server on http://localhost:${PORT}`));
+
+// On stop (e.g. a container restarting), finish the requests under way, then exit
+const stop = () => {
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 10_000).unref();
+};
+process.on('SIGTERM', stop);
+process.on('SIGINT', stop);
 

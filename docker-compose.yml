@@ -1,0 +1,68 @@
+# The app on one machine: the server; the vehicle counter beside it, sharing the server's frames
+# and its own counts through volumes; and Caddy in front, for HTTPS. Settings come from .env
+# (DOMAIN for Caddy, keys for the server). See Deploying in readme.md.
+#
+#   docker compose up -d --build
+
+x-app: &app
+  build: .
+  image: traffic-dash
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false
+
+services:
+  server:
+    <<: *app
+    environment:
+      TRUST_PROXY: 1 # Caddy, one hop in front
+    volumes:
+      - cache:/app/cache
+      - vehicle-counts:/app/vehicle-counts
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Its steady work (about 2 s of CPU a frame) is capped, so it never starves the server
+  counter:
+    <<: *app
+    command: ["node", "counter/index.js"]
+    cpus: 2
+    environment:
+      VEHICLE_THREADS: 2 # To match its CPUs
+    volumes:
+      - cache:/app/cache:ro
+      - vehicle-counts:/app/vehicle-counts
+      - ./models:/app/models:ro
+    healthcheck:
+      # Healthy while its heartbeat is fresh (none without the model: it's idle then)
+      test: ["CMD", "node", "-e", "const s = require('fs').statSync('vehicle-counts/status.json'); process.exit(Date.now() - s.mtimeMs < 90000 ? 0 : 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 2m
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - server
+
+volumes:
+  cache:
+  vehicle-counts:
+  caddy-data:
+  caddy-config:

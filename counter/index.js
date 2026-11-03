@@ -11,15 +11,19 @@ import {
 
 const SCAN = 5000; // ms between looks for new frames
 
-if (!await startVehicleCounting()) process.exit(0);
-console.log('Vehicle counter running');
-
 const every = (ms, task, what) => {
   const go = () => task().catch(err => console.error(`${what}: ${err.message}`));
   go();
   return setInterval(go, ms);
 };
-const timers = [every(SCAN, scan, 'Looking for frames'), every(HEARTBEAT, heartbeat, 'Heartbeat')];
+
+// Without the model, it stays up but idle (and the server shows no counts), rather than exiting:
+// beside the server in `npm run dev` or a container, exiting would stop or restart the others
+const timers = [];
+if (await startVehicleCounting()) {
+  console.log('Vehicle counter running');
+  timers.push(every(SCAN, scan, 'Looking for frames'), every(HEARTBEAT, heartbeat, 'Heartbeat'));
+} else timers.push(setInterval(() => {}, 2 ** 30));
 
 const stop = async () => {
   timers.forEach(clearInterval);

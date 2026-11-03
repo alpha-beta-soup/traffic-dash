@@ -84,7 +84,10 @@ function vehicles(logits, boxes, region, frame, minScore) {
 // are loaded here, so the server only needs them when counting is on.
 export async function loadDetector(model = DEFAULT_MODEL, warmUp) {
   const [ort, { default: sharp }] = await Promise.all([import('onnxruntime-node'), import('sharp')]);
-  const session = await ort.InferenceSession.create(model);
+  // VEHICLE_THREADS: how many threads the model runs on (by default, one per core), to match the
+  // CPU the counter is given
+  const threads = Number(process.env.VEHICLE_THREADS) || 0;
+  const session = await ort.InferenceSession.create(model, threads ? { intraOpNumThreads: threads, interOpNumThreads: 1 } : {});
   const [inputName] = session.inputNames;
   const outputName = want => session.outputNames.find(n => n.includes(want)) ?? session.outputNames[want === 'logits' ? 0 : 1];
 

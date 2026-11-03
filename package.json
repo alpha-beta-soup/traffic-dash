@@ -7,7 +7,7 @@
   "author": "Richard Law",
   "license": "MIT",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "dev": "concurrently -k -n server,counter,client \"npm:dev:server\" \"npm:dev:counter\" \"npm:dev:client\"",

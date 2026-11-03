@@ -10,7 +10,7 @@ An optional second process, the vehicle counter (`counter/`), counts vehicles in
 
 ## Running
 
-Requires Node 22+.
+Requires Node 24+ (and npm 11, which comes with it).
 
 ```sh
 cp .env.template .env   # optional: fill in keys
@@ -35,11 +35,32 @@ All keys are optional. Without them you still get cameras and variable message s
 | `CACHE_MAX_AGE_HOURS` | Frames older than this are pruned | 6 |
 | `VEHICLE_MODEL` | The vehicle detector (ONNX); vehicle counting is on when this file exists. See [scripts/vehicle-eval](scripts/vehicle-eval/readme.md) for where to get it | `models/dfine_s_coco.onnx` |
 | `VEHICLE_COUNTS_DAYS` | Vehicle counts are kept this long, in `vehicle-counts/` | 7 |
+| `VEHICLE_THREADS` | Threads the vehicle counter's model runs on; match it to the CPU the counter is given | one per core |
+| `TRUST_PROXY` | Behind a reverse proxy, how many hops of `X-Forwarded-For` to trust, so clients are rate limited by their own address | off |
+| `DOMAIN` | For deploying with Docker Compose: the domain Caddy gets an HTTPS certificate for | `localhost` |
 | `VITE_MIN_REFRESH` / `VITE_MAX_REFRESH` | Each camera refreshes at a random interval in this range (ms) | 10000 / 25000 |
 
 ### Dev server quirk
 
 Occasionally a file change isn't picked up by the dev server (`node --watch` for the server, or Vite for the client), and it keeps serving the old code; the symptom is a change that has no effect, or a blank page after an edit. Restart `npm run dev`, or save the file again.
+
+## Deploying
+
+`docker-compose.yml` runs it on one machine: the server, the vehicle counter beside it (sharing the frames and counts through volumes, capped at 2 CPUs so it never starves the server), and [Caddy](https://caddyserver.com/) in front for HTTPS. A small VPS near New Zealand with 2–4 cores and Docker is plenty.
+
+1. Point your domain's DNS at the machine, and open ports 80 and 443.
+2. `git clone` this repo there, then `cp .env.template .env` and set `DOMAIN` and any keys.
+3. For vehicle counts, put the model in `models/` (see [scripts/vehicle-eval](scripts/vehicle-eval/readme.md)); without it, the counter idles.
+4. `docker compose up -d --build`
+
+To update: `git pull && docker compose up -d --build`. Logs: `docker compose logs -f server counter`. Health: `/api/health`.
+
+What the server does to stay a good neighbour when public:
+
+- **Rate limit:** each client gets a burst of 300 requests to `/api`, then 10 a second; more get `429` with `Retry-After`. Behind Caddy, `TRUST_PROXY=1` (set in the compose file) makes that per client rather than for everyone at once.
+- **Only New Zealand:** weather, and weather and traffic tiles, are relayed only for New Zealand, so the server's OpenWeatherMap and Mapbox keys can't be used for anywhere else. Weather is shared between viewers of the same place for 10 minutes.
+- **Errors:** in production (`NODE_ENV=production`, as in the image), the browser is told only that a request failed; the detail is logged.
+- **Caching:** the built app's files are named by their content, so browsers keep them for good; the page itself is checked each time, so a new version shows up straight away.
 
 ## Using it
 
