@@ -1,12 +1,16 @@
 // Vehicle detection in camera frames: a COCO-trained object detector (by default D-FINE small,
 // Apache-2.0, as ONNX) through onnxruntime, counting cars, motorcycles, buses and trucks. Used
 // by the vehicle counter (counting.js) and the offline evaluations (scripts/vehicle-eval).
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const DEFAULT_MODEL = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'models', 'dfine_s_coco.onnx');
 
 const INPUT = 640; // The model's input: frames are stretched to this square, as it was trained
+const PIXELS = INPUT * INPUT;
+// Inputs to the model at once: fewer runs of it, without holding all of a large frame's tiles
+const BATCH = 4;
 // COCO classes counted as vehicles, and the colours the evaluations draw their boxes in
 export const VEHICLES = {
   2: { label: 'car', colour: '#00e676' },
@@ -60,13 +64,13 @@ export function merge(found) {
   return kept;
 }
 
-// The vehicles among the model's queries, with boxes in the frame's pixels. A region (a tile)
-// is where in the frame the input came from; boxes cut off by its inner edges are left out, as
-// a neighbouring tile or the whole frame sees them whole.
-function vehicles(logits, boxes, region, frame, minScore) {
+// The vehicles among the model's queries for the `at`th input of a batch, with boxes in the
+// frame's pixels. A region (a tile) is where in the frame the input came from; boxes cut off by
+// its inner edges are left out, as a neighbouring tile or the whole frame sees them whole.
+function vehicles(logits, boxes, at, region, frame, minScore) {
   const [, queries, classes] = logits.dims;
   const found = [];
-  for (let q = 0; q < queries; q++) {
+  for (let q = at * queries; q < (at + 1) * queries; q++) {
     let best = null;
     for (const cls of Object.keys(VEHICLES).map(Number)) {
       const score = sigmoid(logits.data[q * classes + cls]);
@@ -89,10 +93,10 @@ function vehicles(logits, boxes, region, frame, minScore) {
 // { detect(image, minScore, { tile, far }) → { found, seen, ms, width, height, passes } }, for an
 // image as a file path or a Buffer. With `tile` (px), the frame's tiles (or the `far` share of
 // their rows) are looked at too, each a pass of the model like the whole frame (see tiles());
-// `seen` is every pass's boxes before merging. Warmed up on `warmUp` if given, so timings are
-// of warm runs. onnxruntime and sharp
-// are loaded here, so the server only needs them when counting is on.
-export async function loadDetector(model = DEFAULT_MODEL, warmUp) {
+// `seen` is every pass's boxes before merging. Passes go to the model `batch` at a time. Warmed
+// up on `warmUp` if given, so timings are of warm runs. onnxruntime and sharp are loaded here,
+// so only what counts needs them.
+export async function loadDetector(model = DEFAULT_MODEL, warmUp, { batch = BATCH } = {}) {
   const [ort, { default: sharp }] = await Promise.all([import('onnxruntime-node'), import('sharp')]);
   // VEHICLE_THREADS: how many threads the model runs on (by default, one per core), to match the
   // CPU the counter is given
@@ -101,33 +105,42 @@ export async function loadDetector(model = DEFAULT_MODEL, warmUp) {
   const [inputName] = session.inputNames;
   const outputName = want => session.outputNames.find(n => n.includes(want)) ?? session.outputNames[want === 'logits' ? 0 : 1];
 
-  // The frame, or a region of it, as the model's input: RGB, channels first, 0–1
-  const toTensor = async (image, region) => {
-    const frame = region ? sharp(image).extract(region) : sharp(image);
-    const { data } = await frame.removeAlpha().resize(INPUT, INPUT, { fit: 'fill' }).raw()
-      .toBuffer({ resolveWithObject: true });
-    const pixels = INPUT * INPUT;
-    const input = new Float32Array(3 * pixels);
-    for (let i = 0; i < pixels; i++) {
-      for (let c = 0; c < 3; c++) input[c * pixels + i] = data[i * 3 + c] / 255;
+  // An image (sharp's, of the frame or a region of it) as the `at`th of the model's inputs: RGB,
+  // channels first, 0–1
+  const fill = async (image, input, at) => {
+    const data = await image.resize(INPUT, INPUT, { fit: 'fill' }).raw().toBuffer();
+    const offset = at * 3 * PIXELS;
+    for (let i = 0; i < PIXELS; i++) {
+      for (let c = 0; c < 3; c++) input[offset + c * PIXELS + i] = data[i * 3 + c] / 255;
     }
-    return new ort.Tensor('float32', input, [1, 3, INPUT, INPUT]);
+  };
+  const run = async images => {
+    const input = new Float32Array(images.length * 3 * PIXELS);
+    await Promise.all(images.map((image, at) => fill(image, input, at)));
+    const output = await session.run({ [inputName]: new ort.Tensor('float32', input, [images.length, 3, INPUT, INPUT]) });
+    return [output[outputName('logits')], output[outputName('box')]];
   };
 
-  if (warmUp) await session.run({ [inputName]: await toTensor(warmUp) });
+  if (warmUp) await run(Array.from({ length: batch }, () => sharp(warmUp).removeAlpha()));
   return {
     async detect(image, minScore, { tile = 0, far = 1 } = {}) {
-      const { width, height } = await sharp(image).metadata();
+      const file = typeof image === 'string' ? await fs.readFile(image) : image;
+      const { width, height } = await sharp(file).metadata();
       const regions = [{ left: 0, top: 0, width, height }, ...tiles(width, height, tile, far)];
+      // The tiles are cut from the frame decoded once. The whole frame is resized from the file,
+      // as a large one decodes smaller to begin with.
+      const decoded = regions.length > 1 && await sharp(file).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+      const raw = decoded && { width: decoded.info.width, height: decoded.info.height, channels: decoded.info.channels };
+      const of = (region, pass) => (pass ? sharp(decoded.data, { raw }).extract(region) : sharp(file).removeAlpha());
       const found = [];
       let ms = 0;
-      for (const [pass, region] of regions.entries()) {
-        const input = await toTensor(image, pass ? region : null);
+      for (let first = 0; first < regions.length; first += batch) {
+        const some = regions.slice(first, first + batch);
         const started = performance.now();
-        const output = await session.run({ [inputName]: input });
+        const [logits, boxes] = await run(some.map((region, i) => of(region, first + i)));
         ms += performance.now() - started;
-        vehicles(output[outputName('logits')], output[outputName('box')], region, { width, height }, minScore)
-          .forEach(v => found.push({ ...v, pass }));
+        some.forEach((region, i) => vehicles(logits, boxes, i, region, { width, height }, minScore)
+          .forEach(v => found.push({ ...v, pass: first + i })));
       }
       return {
         found: merge(found), seen: found, ms: Math.round(ms), width, height, passes: regions.length,
