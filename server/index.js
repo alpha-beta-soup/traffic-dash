@@ -9,6 +9,7 @@ import { normaliseCamera, normaliseEvent, normaliseSign } from './normalise.js';
 import { inNz, tileInNz } from './nz.js';
 import rateLimit from './rateLimit.js';
 import { cameraRoute, normaliseJourneys } from './routes.js';
+import { fetchSites as fetchCountSites, fetchTrafficCounts } from './trafficCounts.js';
 import { vehicleCounts, vehiclesEnabled } from './vehicles.js';
 import {
   FEED as WARNINGS_FEED, feedLinks, isCurrent, parseAlert,
@@ -112,6 +113,25 @@ const memo = (ttl, fn) => {
   };
 };
 
+// Like memo, but once there's a value it's served as is while a newer one is fetched in the
+// background; a failed refresh keeps the old value (and is tried again next time)
+const stale = (ttl, fn) => {
+  let value;
+  let fetched = 0;
+  let pending = null;
+  const refresh = () => {
+    pending ??= fn()
+      .then((result) => { value = result; fetched = Date.now(); })
+      .finally(() => { pending = null; });
+    return pending;
+  };
+  return async () => {
+    if (value === undefined) await refresh();
+    else if (Date.now() - fetched > ttl) refresh().catch(err => console.error(`Refreshing: ${err.message}`));
+    return value;
+  };
+};
+
 // State highway routes ("journeys"), to place cameras along them. They rarely change, and the
 // feed is large and slow (about 20s), so it gets longer than the usual timeout, starts loading
 // when the server starts, and never holds up the camera list: cameras get routes once they've
@@ -206,6 +226,23 @@ const getWarnings = memo(5 * 60_000, async () => {
 
 app.get('/api/weather-warnings', handle(async (req, res) => {
   res.json(await getWarnings());
+}));
+
+// NZTA's traffic counting sites, and how their latest counts compare with a year before. Counts
+// arrive weekly or so and take a while to fetch, so the last good copy is served while a newer
+// one is fetched in the background; sites change even less often.
+const getCountSites = memo(24 * 60 * 60_000, () => fetchCountSites(fetchJson));
+const getTrafficCounts = stale(6 * 60 * 60_000, async () => fetchTrafficCounts(fetchJson, await getCountSites()));
+
+// Every site, without its daily counts (those come with /api/traffic-counts/:ref)
+app.get('/api/traffic-counts', handle(async (req, res) => {
+  res.json((await getTrafficCounts()).map(site => ({ ...site, days: undefined })));
+}));
+
+app.get('/api/traffic-counts/:ref', handle(async (req, res) => {
+  const site = (await getTrafficCounts()).find(s => s.ref === req.params.ref);
+  if (!site) res.status(404).json({ error: 'No such counting site' });
+  else res.json(site);
 }));
 
 app.get('/api/events', handle(async (req, res) => {

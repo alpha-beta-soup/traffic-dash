@@ -16,3 +16,6 @@ export { default as sunEvent } from './sunEvent';
 export { default as jpegSize, resolutionLabel } from './jpegSize';
 export { insideRing, warningColour, warningFeatures, warningTextColour, warningsAt } from './weatherWarnings';
 export { default as trend } from './trend';
+export {
+  CHANGE_LABELS, changeColour, changeLevel, countFeatures, formatChange, siteChange,
+} from './trafficCounts';

@@ -6,7 +6,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 
 export const DEFAULT_LAYERS = Object.freeze({
-  labels: true, signs: true, events: true, warnings: true, rain: false, wind: false, traffic: true,
+  labels: true, signs: true, events: true, warnings: true, rain: false, wind: false, counts: false, traffic: true,
 });
 
 // Which optional map layers to show; 'traffic' and 'rain' are offered only when the server has
@@ -20,6 +20,7 @@ export default function LayersMenu({ layers, onChange, traffic, weather }) {
     ['warnings', 'Weather warnings'],
     ...(weather ? [['rain', 'Rain']] : []),
     ['wind', 'Wind'],
+    ['counts', 'Traffic counts'],
     ...(traffic ? [['traffic', 'Congestion']] : []),
   ];
   return (

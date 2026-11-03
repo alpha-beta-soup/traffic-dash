@@ -4,6 +4,7 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 
 import CongestionLegend from './CongestionLegend';
+import CountPopup from './CountPopup';
 import EventPopup from './EventPopup';
 import LayersMenu from './LayersMenu';
 import MapPopup from './MapPopup';
@@ -11,7 +12,7 @@ import SitePopup, { DIRECTION_ORDER } from './SitePopup';
 import WarningDetails from './WarningDetails';
 import useLatest from '../hooks/useLatest';
 import {
-  EMPTY, EVENT_LAYERS, RAIN_LAYER, RAIN_REFRESH, SIGN_LAYERS, TRAFFIC_LAYERS, WARNING_LAYERS, WIND_LAYERS, WIND_REFRESH,
+  COUNT_LAYERS, EMPTY, EVENT_LAYERS, RAIN_LAYER, RAIN_REFRESH, SIGN_LAYERS, TRAFFIC_LAYERS, WARNING_LAYERS, WIND_LAYERS, WIND_REFRESH,
   addLayers, rainTiles, refreshWind, trafficOpacity, trafficTiles,
 } from '../map/layers';
 import {
@@ -20,7 +21,7 @@ import {
 import maplibregl, { mapControlsDark } from '../map/maplibre';
 import { TRAFFIC_REFRESH } from '../consts';
 import {
-  cameraCongestion, filterCamerasByBbox, groupCameraSites, snapEvents, warningColour, warningFeatures, warningsAt,
+  cameraCongestion, countFeatures, filterCamerasByBbox, groupCameraSites, snapEvents, warningColour, warningFeatures, warningsAt,
 } from '../utils';
 import { lines } from '../utils/geometry';
 
@@ -51,7 +52,7 @@ const toGeojson = items => ({
 });
 
 export default function Map({
-  styleUrl, dark, traffic, weather, cameras, signs, events, warnings, centre, congestion, isShown, minimised,
+  styleUrl, dark, traffic, weather, cameras, signs, events, warnings, trafficCounts, centre, congestion, isShown, minimised,
   layers, initialView, onBoundsChange, onSiteClick, onCongestion, onToggleMinimised, onLayersChange, onViewChange,
 }) {
   const container = useRef(null);
@@ -78,16 +79,17 @@ export default function Map({
   const hoverKey = useRef(null);
   const [hoveredEvent, setHoveredEvent] = useState(null); // The road event under the pointer
   const [clickedWarnings, setClickedWarnings] = useState(null); // { warnings, lngLat }: the weather warnings clicked on
+  const [hoveredCounts, setHoveredCounts] = useState(null); // { refs, lngLat }: the counting sites under the pointer
   const [, setMoved] = useState(0);
 
   // Keep a hover popup on its icon if the map moves underneath it (e.g. scroll-zooming)
   useEffect(() => {
     const map = mapRef.current;
-    if ((!hovered && !hoveredEvent && !clickedWarnings) || !map) return undefined;
+    if ((!hovered && !hoveredEvent && !clickedWarnings && !hoveredCounts) || !map) return undefined;
     const onMove = () => setMoved(n => n + 1);
     map.on('move', onMove);
     return () => map.off('move', onMove);
-  }, [hovered, hoveredEvent, clickedWarnings]);
+  }, [hovered, hoveredEvent, clickedWarnings, hoveredCounts]);
 
   useEffect(() => {
     const map = new maplibregl.Map({
@@ -164,8 +166,21 @@ export default function Map({
     // congestion came from. mousemove rather than mouseenter, to catch moving straight
     // from one site to a neighbouring one.
     const siteIds = e => String(e.features[0].properties.cameraIds).split(',').map(Number);
-    map.on('click', 'cameras', e => !minimisedRef.current && onSiteClickRef.current(siteIds(e)));
+    // A counting site's dot, drawn over the camera icon it's often beside, takes the pointer
+    const onCountDot = e => map.getLayoutProperty('counts', 'visibility') === 'visible'
+      && map.queryRenderedFeatures(e.point, { layers: ['counts'] }).length > 0;
+    const leaveSite = () => {
+      hoverKey.current = null;
+      map.getCanvas().style.cursor = '';
+      map.getSource('matched').setData(EMPTY);
+      setHovered(null);
+    };
+    map.on('click', 'cameras', e => !minimisedRef.current && !onCountDot(e) && onSiteClickRef.current(siteIds(e)));
     map.on('mousemove', 'cameras', (e) => {
+      if (onCountDot(e)) {
+        if (hoverKey.current) leaveSite();
+        return;
+      }
       const key = e.features[0].properties.cameraIds;
       if (minimisedRef.current || hoverKey.current === key) return;
       hoverKey.current = key;
@@ -181,12 +196,7 @@ export default function Map({
         .sort((a, b) => DIRECTION_ORDER.indexOf(a.direction) - DIRECTION_ORDER.indexOf(b.direction));
       setHovered({ cameras: siteCameras, lngLat: e.features[0].geometry.coordinates });
     });
-    map.on('mouseleave', 'cameras', () => {
-      hoverKey.current = null;
-      map.getCanvas().style.cursor = '';
-      map.getSource('matched').setData(EMPTY);
-      setHovered(null);
-    });
+    map.on('mouseleave', 'cameras', leaveSite);
 
     // Hovering a sign's icon shows the sign itself
     addSignHover(map, () => minimisedRef.current);
@@ -203,11 +213,24 @@ export default function Map({
       setHoveredEvent(null);
     });
 
+    // Hovering a counting site shows how its traffic compares with a year before
+    map.on('mousemove', 'counts', (e) => {
+      if (minimisedRef.current) return;
+      // Read now: the event's features are gone by the time React runs the update
+      const { properties: { refs }, geometry: { coordinates: lngLat } } = e.features[0];
+      map.getCanvas().style.cursor = 'pointer';
+      setHoveredCounts(current => (current?.refs === refs ? current : { refs, lngLat }));
+    });
+    map.on('mouseleave', 'counts', () => {
+      map.getCanvas().style.cursor = '';
+      setHoveredCounts(null);
+    });
+
     // Clicking inside weather warning areas (other than on an icon) shows those warnings; clicking
     // anywhere else closes them. A click rather than a hover: the areas are large.
     map.on('click', (e) => {
       if (minimisedRef.current) return;
-      const icons = ['cameras', 'events', 'signs'].filter(id => map.getLayer(id));
+      const icons = ['cameras', 'events', 'signs', 'counts'].filter(id => map.getLayer(id));
       if (map.queryRenderedFeatures(e.point, { layers: icons }).length) return;
       const lngLat = [e.lngLat.lng, e.lngLat.lat];
       const found = map.getLayer('warning-areas') && map.queryRenderedFeatures(e.point, { layers: ['warning-areas'] }).length
@@ -250,6 +273,7 @@ export default function Map({
       setHovered(null);
       setHoveredEvent(null);
       setClickedWarnings(null);
+      setHoveredCounts(null);
       map.getSource('matched')?.setData(EMPTY);
       hideExpandedSign(map);
       map.getCanvas().style.cursor = '';
@@ -276,6 +300,8 @@ export default function Map({
     WARNING_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.warnings ? 'visible' : 'none'));
     if (map.getLayer(RAIN_LAYER)) map.setLayoutProperty(RAIN_LAYER, 'visibility', layers.rain ? 'visible' : 'none');
     WIND_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.wind ? 'visible' : 'none'));
+    COUNT_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.counts ? 'visible' : 'none'));
+    if (!layers.counts) setHoveredCounts(null);
     if (!layers.warnings) setClickedWarnings(null);
     TRAFFIC_LAYERS.forEach(id => map.getLayer(id) && map.setPaintProperty(id, 'line-opacity', layers.traffic ? trafficOpacity : 0));
   }, [loaded, layers]);
@@ -299,6 +325,10 @@ export default function Map({
   useEffect(() => {
     if (loaded) mapRef.current.getSource('weather-warnings').setData(warningFeatures(warnings));
   }, [loaded, warnings]);
+
+  useEffect(() => {
+    if (loaded) mapRef.current.getSource('traffic-counts').setData(countFeatures(trafficCounts, dark));
+  }, [loaded, trafficCounts, dark]);
 
   useEffect(() => {
     if (loaded) setSigns(mapRef.current, signs);
@@ -364,6 +394,13 @@ export default function Map({
             <Box key={warning.id} sx={{ mt: i ? 2 : 0 }}><WarningDetails warning={warning} /></Box>
           ))}
         </MapPopup>
+      )}
+      {hoveredCounts && !minimised && mapRef.current && (
+        <CountPopup
+          map={mapRef.current}
+          lngLat={hoveredCounts.lngLat}
+          sites={hoveredCounts.refs.split(',').map(ref => trafficCounts.find(site => site.ref === ref)).filter(Boolean)}
+        />
       )}
       {hoveredEvent && !minimised && mapRef.current && (
         <EventPopup map={mapRef.current} event={hoveredEvent} lngLat={[hoveredEvent.lon, hoveredEvent.lat]} />

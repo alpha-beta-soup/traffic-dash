@@ -22,6 +22,7 @@ import { makeTheme } from './theme';
 const SIGNS_REFRESH = 60000;
 const EVENTS_REFRESH = 2 * 60_000; // The server reuses the feed for 2 minutes
 const WARNINGS_REFRESH = 5 * 60_000; // Likewise, for 5 minutes
+const COUNTS_REFRESH = 60 * 60_000; // NZTA's counts arrive weekly or so
 const CAMERAS_REFRESH = 2 * 60_000;
 const CARD_SIZE = { xs: 12, sm: 6, md: 4, lg: 2 }; // Grid columns per card, out of 12
 const NO_CONGESTION = new Map();
@@ -35,6 +36,7 @@ export default function App() {
   const [signs, setSigns] = useState([]);
   const [events, setEvents] = useState([]);
   const [warnings, setWarnings] = useState([]); // MetService weather warnings
+  const [trafficCounts, setTrafficCounts] = useState([]); // NZTA's counting sites, loaded with their layer
   const [bounds, setBounds] = useState(null);
   const [pinned, setPinned] = useStoredSetting('pinned', []); // camera ids
   const [loopAll, setLoopAll] = useStoredSetting('loop-all', true);
@@ -101,6 +103,14 @@ export default function App() {
     const timer = setInterval(loadWarnings, WARNINGS_REFRESH);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!mapLayers.counts) return undefined;
+    const loadCounts = () => fetchJson('/api/traffic-counts').then(setTrafficCounts).catch(console.error);
+    loadCounts();
+    const timer = setInterval(loadCounts, COUNTS_REFRESH);
+    return () => clearInterval(timer);
+  }, [mapLayers.counts]);
 
   // Results for the cameras the map just evaluated; others keep their last known congestion.
   // Only update when something changed, as each update redraws the map, which re-evaluates.
@@ -192,6 +202,7 @@ export default function App() {
                   signs={signs}
                   events={events}
                   warnings={warnings}
+                  trafficCounts={trafficCounts}
                   centre={centre}
                   congestion={congestion}
                   isShown={passesFilter}

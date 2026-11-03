@@ -12,6 +12,8 @@ const FONT = ['Noto Sans Bold'];
 const MAPBOX_ATTRIBUTION = 'Traffic: <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">© Mapbox</a>';
 const OPENWEATHER_ATTRIBUTION = 'Rain: <a href="https://openweathermap.org/" target="_blank" rel="noopener">© OpenWeather</a>';
 // Required by the feed's Creative Commons BY 4.0 licence
+// Required by the open data's Creative Commons BY 4.0 licence
+const NZTA_COUNTS_ATTRIBUTION = 'Traffic counts: <a href="https://opendata-nzta.opendata.arcgis.com/" target="_blank" rel="noopener">Waka Kotahi NZ Transport Agency</a> (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>)';
 const METSERVICE_ATTRIBUTION = 'Weather warnings: <a href="https://www.metservice.com/warnings/home" target="_blank" rel="noopener">© MetService</a> (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>)';
 
 // A new URL each refresh, so the browser can't answer from its own cache (the server
@@ -112,6 +114,10 @@ const STRONG_WIND_MS = 50 / 3.6; // As utils/wind.js: strong from 50 km/h
 // MetService weather warnings: a tint over each area, in its colour, under the roads
 export const WARNING_LAYERS = ['warning-areas', 'warning-outlines'];
 const firstRoadLayer = map => map.getStyle().layers.find(layer => layer['source-layer'] === 'transportation')?.id;
+
+// NZTA's traffic counting sites (utils/trafficCounts): a dot each, coloured by how its latest
+// week compares with a year before, and sized by its traffic
+export const COUNT_LAYERS = ['counts'];
 
 // The congestion lines: on bridges, above the base map's bridges, and on other roads, under
 // them, so an overpass covers the road it crosses
@@ -306,6 +312,22 @@ export const addLayers = (map, traffic, dark, weather = false) => {
       'text-halo-width': 1.6,
     },
   });
+  // Counting sites, above the camera sites: they're often at the same spot, and smaller
+  map.addSource('traffic-counts', { type: 'geojson', data: EMPTY, attribution: NZTA_COUNTS_ATTRIBUTION });
+  const radius = ['get', 'radius'];
+  map.addLayer({
+    id: 'counts',
+    type: 'circle',
+    source: 'traffic-counts',
+    layout: { visibility: 'none', 'circle-sort-key': ['get', 'order'] },
+    paint: {
+      'circle-color': ['get', 'colour'],
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, ['*', radius, 0.5], 10, radius, 14, ['*', radius, 1.5]],
+      'circle-stroke-color': dark ? '#0e1317' : 'white',
+      'circle-stroke-width': 1.5,
+    },
+  });
+
   // Road events, above the camera sites so an incident is never hidden; closures on top
   map.addLayer({
     id: 'events',
