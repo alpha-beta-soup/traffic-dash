@@ -60,6 +60,7 @@ What the server does to stay a good neighbour when public:
 - **Rate limit:** each client gets a burst of 300 requests to `/api`, then 10 a second; more get `429` with `Retry-After`. Behind Caddy, `TRUST_PROXY=1` (set in the compose file) makes that per client rather than for everyone at once.
 - **Only New Zealand:** weather, and weather and traffic tiles, are relayed only for New Zealand, so the server's OpenWeatherMap and Mapbox keys can't be used for anywhere else. Weather is shared between viewers of the same place for 10 minutes.
 - **Errors:** in production (`NODE_ENV=production`, as in the image), the browser is told only that a request failed; the detail is logged.
+- **Content Security Policy:** the page may load only its own files, data from the map style's host and Open-Meteo, and nothing may frame it. A `MAP_STYLE` whose tiles or fonts come from another host needs that host added in `server/index.js`.
 - **Caching:** the built app's files are named by their content, so browsers keep them for good; the page itself is checked each time, so a new version shows up straight away.
 
 ## Using it

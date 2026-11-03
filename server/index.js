@@ -49,7 +49,33 @@ const ISOLATION_HEADERS = {
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'credentialless',
 };
+// What the page may load and run: its own files, and data from the map styles' hosts (a style that
+// loads tiles or fonts from a third host would need it added) and Open-Meteo. MUI and MapLibre
+// set inline styles; Open-Meteo's wind layer runs WebAssembly, in workers made from blob: and
+// data: URLs.
+const origin = (url) => {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null; // A path on this server
+  }
+};
+const CONNECT = new Set([MAP_STYLE, process.env.MAP_STYLE_DARK].map(origin).filter(Boolean)).add('https://openmeteo.s3.amazonaws.com');
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' 'wasm-unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  `connect-src 'self' ${[...CONNECT].join(' ')}`,
+  "worker-src 'self' blob: data:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
 const SECURITY_HEADERS = {
+  'Content-Security-Policy': CONTENT_SECURITY_POLICY,
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Frame-Options': 'DENY',
