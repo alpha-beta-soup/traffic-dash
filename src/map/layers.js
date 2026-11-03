@@ -11,9 +11,9 @@ export const EMPTY = { type: 'FeatureCollection', features: [] };
 const FONT = ['Noto Sans Bold'];
 const MAPBOX_ATTRIBUTION = 'Traffic: <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">© Mapbox</a>';
 const OPENWEATHER_ATTRIBUTION = 'Rain: <a href="https://openweathermap.org/" target="_blank" rel="noopener">© OpenWeather</a>';
-// Required by the feed's Creative Commons BY 4.0 licence
 // Required by the open data's Creative Commons BY 4.0 licence
 const NZTA_COUNTS_ATTRIBUTION = 'Traffic counts: <a href="https://opendata-nzta.opendata.arcgis.com/" target="_blank" rel="noopener">Waka Kotahi NZ Transport Agency</a> (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>)';
+// Required by the feed's Creative Commons BY 4.0 licence
 const METSERVICE_ATTRIBUTION = 'Weather warnings: <a href="https://www.metservice.com/warnings/home" target="_blank" rel="noopener">© MetService</a> (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>)';
 
 // A new URL each refresh, so the browser can't answer from its own cache (the server

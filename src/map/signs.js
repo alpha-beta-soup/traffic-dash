@@ -5,7 +5,12 @@ import { drawSignPage, signPages, signSize } from '../utils';
 
 const SHOW_NONE = ['==', ['get', 'id'], -1];
 
-// Shows `signs` (those with a message) on the map, drawing each page's image once
+// Each map's sign images in use at the last update, kept until the next: the data swaps in
+// asynchronously, so the outgoing signs still draw for a moment
+const lastUsed = new WeakMap();
+
+// Shows `signs` (those with a message) on the map, drawing each page's image once, and removing
+// images no longer shown: travel times change every few minutes, and each change is a new image
 export function setSigns(map, signs) {
   const features = signs.flatMap((sign) => {
     const pages = signPages(sign.message);
@@ -25,6 +30,13 @@ export function setSigns(map, signs) {
     }];
   });
   map.getSource('signs').setData({ type: 'FeatureCollection', features });
+  const used = new Set(features.flatMap(({ properties }) => Object.keys(properties)
+    .filter(key => /^page\d+$/.test(key)).map(key => properties[key])));
+  const previous = lastUsed.get(map) ?? new Set();
+  map.listImages()
+    .filter(id => id.startsWith('sign:') && !used.has(id) && !previous.has(id))
+    .forEach(id => map.removeImage(id));
+  lastUsed.set(map, used);
 }
 
 // Every multi-page sign steps to its next page together. Returns a function to stop.
