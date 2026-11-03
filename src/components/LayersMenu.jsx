@@ -6,17 +6,19 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 
 export const DEFAULT_LAYERS = Object.freeze({
-  labels: true, signs: true, events: true, warnings: true, traffic: true,
+  labels: true, signs: true, events: true, warnings: true, rain: false, traffic: true,
 });
 
-// Which optional map layers to show; 'traffic' is offered only when traffic data is available
-export default function LayersMenu({ layers, onChange, traffic }) {
+// Which optional map layers to show; 'traffic' and 'rain' are offered only when the server has
+// their data (a Mapbox token, an OpenWeatherMap key)
+export default function LayersMenu({ layers, onChange, traffic, weather }) {
   const [anchor, setAnchor] = useState(null);
   const options = [
     ['labels', 'Camera labels'],
     ['signs', 'Message signs'],
     ['events', 'Road events'],
     ['warnings', 'Weather warnings'],
+    ...(weather ? [['rain', 'Rain']] : []),
     ...(traffic ? [['traffic', 'Congestion']] : []),
   ];
   return (

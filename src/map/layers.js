@@ -9,6 +9,7 @@ import siteIcon from './siteIcon';
 export const EMPTY = { type: 'FeatureCollection', features: [] };
 const FONT = ['Noto Sans Bold'];
 const MAPBOX_ATTRIBUTION = 'Traffic: <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">© Mapbox</a>';
+const OPENWEATHER_ATTRIBUTION = 'Rain: <a href="https://openweathermap.org/" target="_blank" rel="noopener">© OpenWeather</a>';
 // Required by the feed's Creative Commons BY 4.0 licence
 const METSERVICE_ATTRIBUTION = 'Weather warnings: <a href="https://www.metservice.com/warnings/home" target="_blank" rel="noopener">© MetService</a> (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>)';
 
@@ -85,6 +86,12 @@ const BRIDGE_FILTERS = ['["==",["get","brunnel"],"bridge"]', '["==","brunnel","b
 const firstBridgeLayer = map => map.getStyle().layers.find(layer => layer['source-layer'] === 'transportation'
   && BRIDGE_FILTERS.some(filter => JSON.stringify(layer.filter ?? '').includes(filter)))?.id;
 
+// Modelled rain (OpenWeatherMap, through the server: server/weatherTiles.js), above the warning
+// tints and under the roads. A new URL each refresh, as with the traffic tiles.
+export const RAIN_LAYER = 'rain';
+export const RAIN_REFRESH = 10 * 60_000; // The server shares each tile for as long
+export const rainTiles = () => [`${window.location.origin}/api/weather-tiles/rain/{z}/{x}/{y}.png?t=${Date.now()}`];
+
 // MetService weather warnings: a tint over each area, in its colour, under the roads
 export const WARNING_LAYERS = ['warning-areas', 'warning-outlines'];
 const firstRoadLayer = map => map.getStyle().layers.find(layer => layer['source-layer'] === 'transportation')?.id;
@@ -94,7 +101,23 @@ const firstRoadLayer = map => map.getStyle().layers.find(layer => layer['source-
 export const TRAFFIC_LAYERS = ['traffic', 'traffic-bridges'];
 const ON_BRIDGE = ['==', ['get', 'structure'], 'bridge'];
 
-export const addLayers = (map, traffic, dark) => {
+// The base map's water (OpenMapTiles' water, waterway and water_name layers) in neutral greys:
+// blue water matters little here, and would hide the blue of the rain layer and road events
+const WATER = {
+  light: { fill: '#d5d8dc', line: '#c3c8ce', text: '#6b7178' },
+  dark: { fill: '#2f3338', line: '#3b4047', text: '#99a0a8' },
+};
+const WATER_PAINT = { fill: 'fill-color', line: 'line-color', symbol: 'text-color' };
+const greyWater = (map, dark) => {
+  const colours = WATER[dark ? 'dark' : 'light'];
+  map.getStyle().layers
+    .filter(layer => ['water', 'waterway', 'water_name'].includes(layer['source-layer']) && WATER_PAINT[layer.type])
+    .forEach(layer => map.setPaintProperty(layer.id, WATER_PAINT[layer.type], colours[layer.type === 'symbol' ? 'text' : layer.type]));
+};
+
+// weather: whether the server has weather (an OpenWeatherMap key), for the rain layer
+export const addLayers = (map, traffic, dark, weather = false) => {
+  greyWater(map, dark);
   const belowLabels = firstLabelLayer(map);
   const belowBridges = firstBridgeLayer(map) ?? belowLabels;
   const belowRoads = firstRoadLayer(map) ?? belowBridges;
@@ -112,6 +135,22 @@ export const addLayers = (map, traffic, dark) => {
     layout: { 'line-join': 'round' },
     paint: { 'line-color': ['get', 'colour'], 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 1, 10, 2.5], 'line-opacity': 0.9 },
   }, belowRoads);
+  if (weather) {
+    map.addSource(RAIN_LAYER, {
+      type: 'raster', tiles: rainTiles(), tileSize: 256, maxzoom: 10, attribution: OPENWEATHER_ATTRIBUTION,
+    });
+    map.addLayer({
+      id: RAIN_LAYER,
+      type: 'raster',
+      source: RAIN_LAYER,
+      layout: { visibility: 'none' }, // Until turned on in the layers menu
+      // The tiles are pale washes: more saturated and contrasting, they read on the map, and
+      // on the dark one, lifted out of the dark
+      paint: {
+        'raster-opacity': 0.85, 'raster-saturation': 0.6, 'raster-contrast': 0.3, 'raster-brightness-min': dark ? 0.2 : 0,
+      },
+    }, belowRoads);
+  }
   const labels = LABELS[dark ? 'dark' : 'light'];
   SITE_ICONS.forEach(icon => map.addImage(icon, siteIcon(icon.replace('site-', '')), { pixelRatio: 2 }));
   map.addSource('cameras', { type: 'geojson', data: EMPTY });

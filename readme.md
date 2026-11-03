@@ -24,7 +24,7 @@ All keys are optional. Without them you still get cameras and variable message s
 
 | Key | Meaning | Default |
 |---|---|---|
-| `OPENWEATHERMAP_APIKEY` | OpenWeatherMap API key: weather and sunrise/sunset per camera (free tier OK) | |
+| `OPENWEATHERMAP_APIKEY` | OpenWeatherMap API key: weather and sunrise/sunset per camera, and the rain layer (free tier OK) | |
 | `MAPBOX_TOKEN` | Mapbox token: live traffic lines on the map, per-camera congestion and the congestion filter, from Mapbox Traffic v1 vector tiles (proxied and cached by the server; free tier OK) | |
 | `MAP_STYLE` | Base map style URL | OpenFreeMap Liberty (no key) |
 | `MAP_STYLE_DARK` | Base map style URL for the dark theme | `MAP_STYLE`, darkened by the server, so both themes are the same map |
@@ -44,7 +44,7 @@ Occasionally a file change isn't picked up by the dev server (`node --watch` for
 - **Camera pages:** click a card's image for the camera's own page (`/camera/<id>`): the whole frame at full size, playback you control (Live, play/pause, step, and a scrubber across the saved history; space and the arrow keys work too), click-to-zoom on high-resolution cameras, its details, a small map of the cameras and signs around it (click a site to go there), the nearest lit message signs as their LED boards, nearby road events, and getting around: the site's other cameras, the nearest cameras on any road, the next camera either way along the state highway, and every camera on the route. Share copies the page's link; Back returns to the dashboard where you left it, or, if you've moved on from the first camera, centred where you ended up. Moving between cameras updates the page in place: the map pans to the next camera.
 - **Congestion filter** (top bar): show only cameras at moderate or heavy congestion and worse.
 - **Message signs:** small icons that expand into the sign on hover; shown in full from zoom 14.
-- **Layers** (on the map): camera labels, message signs, road events, weather warnings and congestion lines on or off.
+- **Layers** (on the map): camera labels, message signs, road events, weather warnings, rain and congestion lines on or off. Rain (off to start with) is OpenWeatherMap's modelled precipitation, not radar; water on the base map is grey, so its blues stand out.
 - **Minimise:** shrinks the map to a card, keeping the area in view.
 - **Theme** (top bar): Auto follows your system's light or dark setting; or pick Light or Dark.
 - **Road events:** crashes, closures, roadworks and hazards, as NZ-road-sign-style icons; hover one for details. Cameras within 500m of a closure or delay are flagged on their cards.

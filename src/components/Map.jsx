@@ -11,7 +11,8 @@ import SitePopup, { DIRECTION_ORDER } from './SitePopup';
 import WarningDetails from './WarningDetails';
 import useLatest from '../hooks/useLatest';
 import {
-  EMPTY, EVENT_LAYERS, SIGN_LAYERS, TRAFFIC_LAYERS, WARNING_LAYERS, addLayers, trafficOpacity, trafficTiles,
+  EMPTY, EVENT_LAYERS, RAIN_LAYER, RAIN_REFRESH, SIGN_LAYERS, TRAFFIC_LAYERS, WARNING_LAYERS, addLayers, rainTiles,
+  trafficOpacity, trafficTiles,
 } from '../map/layers';
 import {
   addSignHover, hideExpandedSign, setSigns, startSignPaging,
@@ -50,7 +51,7 @@ const toGeojson = items => ({
 });
 
 export default function Map({
-  styleUrl, dark, traffic, cameras, signs, events, warnings, centre, congestion, isShown, minimised,
+  styleUrl, dark, traffic, weather, cameras, signs, events, warnings, centre, congestion, isShown, minimised,
   layers, initialView, onBoundsChange, onSiteClick, onCongestion, onToggleMinimised, onLayersChange, onViewChange,
 }) {
   const container = useRef(null);
@@ -143,7 +144,7 @@ export default function Map({
     };
     snapEventsRef.current = () => { snapNeeded = true; if (map.loaded()) snapEventRoads(); };
     map.on('load', () => {
-      addLayers(map, traffic, dark);
+      addLayers(map, traffic, dark, weather);
       setLoaded(true);
       reportBounds();
     });
@@ -217,15 +218,17 @@ export default function Map({
 
     // Traffic changes every few minutes: refetch the tiles (the server shares them between viewers)
     const refresh = setInterval(() => map.getSource('traffic')?.setTiles(trafficTiles()), TRAFFIC_REFRESH);
+    const refreshRain = setInterval(() => map.getSource(RAIN_LAYER)?.setTiles(rainTiles()), RAIN_REFRESH);
 
     return () => {
       clearInterval(refresh);
+      clearInterval(refreshRain);
       setLoaded(false);
       mapRef.current = null;
       map.remove();
     };
   }, [
-    styleUrl, dark, traffic, onBoundsChangeRef, onViewChangeRef, onSiteClickRef, onCongestionRef,
+    styleUrl, dark, traffic, weather, onBoundsChangeRef, onViewChangeRef, onSiteClickRef, onCongestionRef,
     camerasRef, eventsRef, warningsRef, congestionRef, minimisedRef, initialViewRef,
   ]);
 
@@ -269,6 +272,7 @@ export default function Map({
     SIGN_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.signs ? 'visible' : 'none'));
     EVENT_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.events ? 'visible' : 'none'));
     WARNING_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.warnings ? 'visible' : 'none'));
+    if (map.getLayer(RAIN_LAYER)) map.setLayoutProperty(RAIN_LAYER, 'visibility', layers.rain ? 'visible' : 'none');
     if (!layers.warnings) setClickedWarnings(null);
     TRAFFIC_LAYERS.forEach(id => map.getLayer(id) && map.setPaintProperty(id, 'line-opacity', layers.traffic ? trafficOpacity : 0));
   }, [loaded, layers]);
@@ -330,7 +334,7 @@ export default function Map({
         </Box>
       )}
       <Box sx={{ position: 'absolute', zIndex: 2, top: 10, right: minimised ? 10 : 50, display: 'flex', gap: 0.5 }}>
-        {!minimised && <LayersMenu layers={layers} onChange={onLayersChange} traffic={traffic} />}
+        {!minimised && <LayersMenu layers={layers} onChange={onLayersChange} traffic={traffic} weather={weather} />}
         <Button variant="contained" size="small" onClick={onToggleMinimised} sx={{ opacity: 0.85 }}>
           {minimised ? 'Expand' : 'Minimise'}
         </Button>

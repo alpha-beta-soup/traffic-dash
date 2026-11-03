@@ -188,6 +188,7 @@ export default function App() {
                   styleUrl={mode === 'dark' ? config.mapStyleDark : config.mapStyle}
                   dark={mode === 'dark'}
                   traffic={config.traffic}
+                  weather={config.weather}
                   cameras={cameras}
                   signs={signs}
                   events={events}

@@ -11,6 +11,9 @@ import {
   FEED as WARNINGS_FEED, feedLinks, isCurrent, parseAlert,
 } from './weatherWarnings.js';
 import {
+  LAYERS as WEATHER_LAYERS, MAX_ZOOM as WEATHER_MAX_ZOOM, TILE_TTL as WEATHER_TILE_TTL, getTile as getWeatherTile,
+} from './weatherTiles.js';
+import {
   MAX_ZOOM as TILE_MAX_ZOOM, MIN_ZOOM as TILE_MIN_ZOOM, TILE_TTL, getTile,
 } from './trafficTiles.js';
 
@@ -166,6 +169,19 @@ app.get('/api/weather', handle(async (req, res) => {
   const { lat, lon } = req.query;
   const params = new URLSearchParams({ lat, lon, units: 'metric', appid: key });
   res.json(await fetchJson(`https://api.openweathermap.org/data/2.5/weather?${params}`));
+}));
+
+app.get('/api/weather-tiles/:layer/:z/:x/:y.png', handle(async (req, res) => {
+  const { layer } = req.params;
+  if (!process.env.OPENWEATHERMAP_APIKEY || !Object.hasOwn(WEATHER_LAYERS, layer)) return res.sendStatus(404);
+  const [z, x, y] = [req.params.z, req.params.x, req.params.y].map(Number);
+  const max = 2 ** z;
+  if (![z, x, y].every(Number.isInteger) || z < 0 || z > WEATHER_MAX_ZOOM || x < 0 || y < 0 || x >= max || y >= max) {
+    return res.sendStatus(400);
+  }
+  const tile = await getWeatherTile(layer, z, x, y);
+  res.set({ 'Content-Type': 'image/png', 'Cache-Control': `public, max-age=${WEATHER_TILE_TTL / 1000}` });
+  res.send(tile);
 }));
 
 app.get('/api/traffic-tiles/:z/:x/:y.pbf', handle(async (req, res) => {
