@@ -53,3 +53,60 @@ frames, and breaks across gaps (frames are only cached while someone views a cam
 Output: `eval-output/trends/index.html`; hover a chart for each frame's count and the trend.
 Counts are kept in `counts.json` there, so reruns only count new frames.
 
+`--tile 320` counts in overlapping tiles of about 320 px as well as the whole frame, which finds
+about half as many vehicles again, mostly small ones in the mid-distance and in queues, at about
+7 times the cost. `npm run eval:vehicles -- --tile 320` shows which boxes only the tiles found.
+
+## Occupancy
+
+```sh
+npm run eval:occupancy
+npm run eval:occupancy -- --cameras 6 --tile 0
+```
+
+A second measure of the traffic in view, for what detection misses: vehicles too small or too
+bunched up to box, as in a far-off queue. Charted under the detected count, per camera, on the
+same time axis:
+
+1. **Baseline:** every 30 minutes, each pixel's median over the 9 emptiest frames (fewest
+   vehicles detected) within 3 hours: the road without its traffic. Within 1 hour, a long queue
+   ends up in the baseline itself.
+2. **What differs:** frames are compared after taking off the change in light across the road
+   (the median difference in 16 px cells, smoothed: shade and sun are broad, vehicles small and
+   sharp), and allowing for the camera shaking a pixel. Without this, afternoon shade on the road
+   counts as traffic.
+3. **Perspective:** how big a car looks at each spot, from the cars detected there; each
+   differing pixel adds 1 ÷ a car's area there, so a vehicle anywhere adds about 1
+   (vehicle-equivalents).
+4. **Road only:** where cars have been detected.
+
+Output: `eval-output/occupancy/index.html`, with each camera's latest baseline and its busiest
+frame showing what was counted. Detections are kept in `eval-output/detections-tile<px>.json`,
+shared with `eval:road`.
+
+**Not ready.** It counts real vehicles once the light is allowed for, but the far field, which is
+what it's for, is where it falls down. A straight-line fit of car size by row (tried first) can
+reach towards the horizon, but only suits a straight road: it broke on a curving road (Ngauranga
+Gorge) and on several roads at different distances (Petone). Sizes from where cars were detected
+suit any view, but stop where detection does. It would need both, and testing across days, dusk,
+rain and night.
+
+## Vehicles on the road
+
+```sh
+npm run eval:road
+```
+
+The detector finds parked cars too (yards, service lanes, the verge), the same ones in every
+frame: a floor under the count that flattens its swing, and that empties as people drive home.
+This leaves out vehicles with a box in the same place in most frames within 15 minutes either
+side (queued traffic creeps along between frames a minute apart, so stays), and any with their
+wheels off the road (where moving vehicles have been).
+
+On SH1/SH2 Interchange, a quarter of detections were parked cars on a service lane; without them
+the evening rise went from about 15% to 65%, peaking at 4:30–5 rather than 3. Cameras without
+parking in view were unchanged. The road area left out almost nothing: over hours, moving
+vehicles go nearly everywhere a vehicle can.
+
+Output: `eval-output/road/index.html`, with each camera's road and parked vehicles.
+

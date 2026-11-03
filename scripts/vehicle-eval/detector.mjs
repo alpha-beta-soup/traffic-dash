@@ -1,4 +1,5 @@
 // What the evaluations share: the detector (server/vehicleDetector.js), and the frames in cache/
+// and running it over them
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,4 +23,27 @@ export async function cameraNames() {
   } catch {
     return new Map();
   }
+}
+
+// Runs the detector over frames not yet in `store` (keyed by path in cache/), keeping each
+// frame's size and boxes ([x, y, w, h, class]); saved to storeFile as it goes, so an interrupted
+// run picks up where it left off
+export async function detectFrames(detector, files, store, storeFile, { threshold, tile }) {
+  let fresh = 0;
+  for (const file of files) {
+    const key = path.relative(cacheDir, file);
+    if (store[key]?.threshold === threshold) continue;
+    // The server prunes old frames as it goes, so a frame listed earlier may be gone
+    const detected = await detector.detect(file, threshold, { tile }).catch(() => null);
+    if (!detected) continue;
+    const { found, width, height } = detected;
+    store[key] = {
+      threshold, width, height, boxes: found.map(v => [v.x, v.y, v.w, v.h].map(Math.round).concat(v.cls)),
+    };
+    if (++fresh % 10 === 0) {
+      process.stdout.write('.');
+      await fs.writeFile(storeFile, JSON.stringify(store));
+    }
+  }
+  await fs.writeFile(storeFile, JSON.stringify(store));
 }
