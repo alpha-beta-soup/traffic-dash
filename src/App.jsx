@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
-import Typography from '@mui/material/Typography';
 import CssBaseline from '@mui/material/CssBaseline';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { ThemeProvider } from '@mui/material/styles';
@@ -14,7 +13,7 @@ import TrafficMap from './components/Map';
 import useStoredSetting from './hooks/useStoredSetting';
 import CameraPage from './pages/CameraPage';
 import { matchRoute, navigate, usePath } from './router';
-import { MAX_CAMERAS_IN_VIEW, congestionEnum } from './consts';
+import { congestionEnum } from './consts';
 import {
   fetchJson, filterCamerasByBbox, nearbyEvents, warningsAt,
 } from './utils';
@@ -139,15 +138,15 @@ export default function App() {
   }, []);
 
   const inView = useMemo(() => (bounds ? filterCamerasByBbox(cameras, bounds) : []), [cameras, bounds]);
-  // Pinned cameras always show, first; the rest of what's in view follows if there aren't too many
+  // Pinned cameras always show, first; then the rest of what's in view (cards fetch only while
+  // on screen, so there can be any number)
   const pinnedCameras = useMemo(() => cameras.filter(camera => pinned.includes(camera.id)), [cameras, pinned]);
   const unpinnedInView = inView.filter(camera => !pinned.includes(camera.id) && passesFilter(camera.id));
-  // Only working cameras count towards the limit; offline ones are listed after them
+  // Working cameras first, offline ones after
   const isWorking = camera => !camera.offline && !camera.underMaintenance && !camera.unavailable;
   const working = unpinnedInView.filter(isWorking);
   const notWorking = unpinnedInView.filter(camera => !isWorking(camera));
-  const tooMany = working.length > MAX_CAMERAS_IN_VIEW;
-  const shown = [...pinnedCameras, ...(tooMany ? [] : [...working, ...notWorking])];
+  const shown = [...pinnedCameras, ...working, ...notWorking];
 
   return (
     <ThemeProvider theme={theme}>
@@ -223,14 +222,6 @@ export default function App() {
                 />
               </Grid>
             ))}
-            {tooMany && (
-              <Grid size={12} sx={{ textAlign: 'center', py: 2 }}>
-                <Typography>
-                  {working.length} working cameras in view{congestionFilter !== 'all' && config?.traffic ? ` with ${congestionEnum[congestionFilter].description.toLowerCase()} or worse congestion` : ''}.
-                  {' '}Zoom in or pan to see them, or click a site on the map to pin its cameras.
-                </Typography>
-              </Grid>
-            )}
           </Grid>
         </Box>
       )}

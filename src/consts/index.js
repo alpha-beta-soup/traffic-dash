@@ -13,7 +13,6 @@ export const ANIMATION_HOLD = 1500; // ms to hold the present before looping
 export const ANIMATION_FADE = 400; // ms
 export const BLACK = '#113654';
 export const LIGHTBLACK = '#485d6f';
-export const MAX_CAMERAS_IN_VIEW = 10;
 export const TRAFFIC_REFRESH = 5 * 60_000; // ms; Mapbox updates traffic roughly this often
 
 // Randomised per camera, so they don't all hit the server at once

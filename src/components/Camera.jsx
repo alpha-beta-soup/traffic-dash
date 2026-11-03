@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -18,6 +18,7 @@ import ToggleButton from './ToggleButton';
 import { VehicleSparkline } from './VehicleTrend';
 import useLiveImage from '../hooks/useLiveImage';
 import useNow from '../hooks/useNow';
+import useOnScreen from '../hooks/useOnScreen';
 import useVehicleCounts from '../hooks/useVehicleCounts';
 import useWeather from '../hooks/useWeather';
 import { Link, cameraPath } from '../router';
@@ -80,12 +81,16 @@ function WeatherWarning({ warnings }) {
 // congestion comes from the map, which matches cameras to the traffic lines it has loaded
 // nearbyEvents: road closures and delays near the camera, most serious first
 // warnings: MetService weather warnings covering the camera, most serious first
+// A card only fetches while it's on screen (or nearly): there can be hundreds in the grid.
 export default function Camera({
   camera, config, congestion, nearbyEvents = [], warnings = [], loopAll, pinned, onPin, onFocus,
 }) {
   const { id, name, description, lat, lon, offline, underMaintenance } = camera;
   const unavailable = offline || underMaintenance;
-  const { live, failed, stockImage } = useLiveImage(camera, unavailable);
+  const card = useRef(null);
+  const { onScreen, seen } = useOnScreen(card);
+  // Scrolled away, the card keeps its last image but stops asking for new ones
+  const { live, failed, stockImage } = useLiveImage(camera, unavailable || !onScreen);
   // Follows the global toggle whenever it changes, but can be overridden per camera
   const [looping, setLooping] = useState(loopAll);
   const [prevLoopAll, setPrevLoopAll] = useState(loopAll);
@@ -93,14 +98,14 @@ export default function Camera({
     setPrevLoopAll(loopAll);
     setLooping(loopAll);
   }
-  const weather = useWeather(config.weather, lat, lon);
+  const weather = useWeather(config.weather && seen, lat, lon);
   const [notice, setNotice] = useState(null);
 
   // Reload the frame list whenever a new live frame arrives
   const liveTime = live?.time.getTime();
-  const frames = useLoopFrames(id, looping && !unavailable && !!liveTime, liveTime);
-  const vehicleCounts = useVehicleCounts(id, config.vehicles && !unavailable, VEHICLE_HOURS, liveTime);
-  const shown = useLoopPlayback(frames, looping);
+  const frames = useLoopFrames(id, looping && !unavailable && onScreen && !!liveTime, liveTime);
+  const vehicleCounts = useVehicleCounts(id, config.vehicles && !unavailable && onScreen, VEHICLE_HOURS, liveTime);
+  const shown = useLoopPlayback(frames, looping && onScreen);
 
   // A link to the camera's own page
   const share = async () => {
@@ -127,7 +132,7 @@ export default function Camera({
   else if (failed && !frame && !live) placeholder = { title: 'Image unavailable', detail: 'Retrying…' };
 
   return (
-    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Card ref={card} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* The image opens the camera's page */}
       <Box component={Link} to={cameraPath(id)} aria-label={`Open ${name}`} sx={{ position: 'relative', display: 'block', color: 'inherit' }}>
         <CardMedia
