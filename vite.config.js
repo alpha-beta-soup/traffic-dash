@@ -2,6 +2,11 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 const server = `http://localhost:${process.env.PORT || 3000}`;
+// As the server sends (server/index.js): cross-origin isolation, for the wind layer
+const headers = {
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'credentialless',
+};
 
 // The big libraries get their own files: they download in parallel, and stay cached in the
 // browser when only the app's own code changes
@@ -25,11 +30,13 @@ export default defineConfig({
   // pre-bundling would move it away from
   optimizeDeps: { exclude: ['@openmeteo/weather-map-layer'] },
   server: {
+    headers,
     proxy: {
       '/api': server,
       '/cache': server,
     },
   },
+  preview: { headers },
   build: {
     rollupOptions: {
       output: { manualChunks: vendorChunk },

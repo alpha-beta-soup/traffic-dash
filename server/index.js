@@ -27,6 +27,18 @@ const MAP_STYLE_DARK_PATH = '/api/map-style/dark';
 
 const app = express();
 
+// Cross-origin isolation, so the wind layer (Open-Meteo's map layer) can share its weather data
+// with its workers rather than copy it for each tile. 'credentialless' rather than 'require-corp':
+// cross-origin resources (map tiles, fonts, weather files) then need no extra header.
+const ISOLATION_HEADERS = {
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'credentialless',
+};
+app.use((req, res, next) => {
+  res.set(ISOLATION_HEADERS);
+  next();
+});
+
 const fetchOk = async (url, options) => {
   const res = await fetch(url, { signal: AbortSignal.timeout(15000), ...options });
   if (!res.ok) {
