@@ -21,6 +21,9 @@ const vendorChunk = (id) => {
 
 export default defineConfig({
   plugins: [react()],
+  // Open-Meteo's map layer loads its worker and WebAssembly from beside its own module, which
+  // pre-bundling would move it away from
+  optimizeDeps: { exclude: ['@openmeteo/weather-map-layer'] },
   server: {
     proxy: {
       '/api': server,

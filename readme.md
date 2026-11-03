@@ -44,7 +44,7 @@ Occasionally a file change isn't picked up by the dev server (`node --watch` for
 - **Camera pages:** click a card's image for the camera's own page (`/camera/<id>`): the whole frame at full size, playback you control (Live, play/pause, step, and a scrubber across the saved history; space and the arrow keys work too), click-to-zoom on high-resolution cameras, its details, a small map of the cameras and signs around it (click a site to go there), the nearest lit message signs as their LED boards, nearby road events, and getting around: the site's other cameras, the nearest cameras on any road, the next camera either way along the state highway, and every camera on the route. Share copies the page's link; Back returns to the dashboard where you left it, or, if you've moved on from the first camera, centred where you ended up. Moving between cameras updates the page in place: the map pans to the next camera.
 - **Congestion filter** (top bar): show only cameras at moderate or heavy congestion and worse.
 - **Message signs:** small icons that expand into the sign on hover; shown in full from zoom 14.
-- **Layers** (on the map): camera labels, message signs, road events, weather warnings, rain and congestion lines on or off. Rain (off to start with) is OpenWeatherMap's modelled precipitation, not radar; water on the base map is grey, so its blues stand out.
+- **Layers** (on the map): camera labels, message signs, road events, weather warnings, rain and congestion lines on or off. Rain and wind are off to start with. Rain is OpenWeatherMap's modelled precipitation, not radar; water on the base map is grey, so its blues stand out. Wind is Open-Meteo's forecast from ECMWF's global model, for the current hour, as faint wind barbs (into the wind; a half feather 5 knots, a full one 10, a pennant 50), the same size on screen at any zoom, and in the warning colour from 50 km/h.
 - **Minimise:** shrinks the map to a card, keeping the area in view.
 - **Theme** (top bar): Auto follows your system's light or dark setting; or pick Light or Dark.
 - **Road events:** crashes, closures, roadworks and hazards, as NZ-road-sign-style icons; hover one for details. Cameras within 500m of a closure or delay are flagged on their cards.
@@ -69,6 +69,7 @@ Weather warnings: © MetService, licensed [Creative Commons BY 4.0](https://crea
 - [Mapbox Traffic v1](https://docs.mapbox.com/data/tilesets/reference/mapbox-traffic-v1/)
 - [OpenFreeMap](https://openfreemap.org/) and [MapLibre GL JS](https://maplibre.org/)
 - [OpenWeatherMap](https://openweathermap.org/)
+- [Open-Meteo](https://open-meteo.com/) and its [weather map layer](https://github.com/open-meteo/weather-map-layer) (GPL-2.0), for the wind layer: data CC BY 4.0
 - [MetService severe weather warnings](https://www.metservice.com/warnings/home), from its public CAP feed (CC BY 4.0)
 - [Weather Icons](https://erikflowers.github.io/weather-icons/)
 

@@ -5,6 +5,7 @@ import { MATCHABLE_CLASS } from '../consts/trafficEnum';
 import { SITE_ICONS, signThumbnail } from '../utils';
 import eventIcon from './eventIcon';
 import siteIcon from './siteIcon';
+import { BARB_MAX, BARB_STEP, barbIcons } from './windIcon';
 
 export const EMPTY = { type: 'FeatureCollection', features: [] };
 const FONT = ['Noto Sans Bold'];
@@ -91,6 +92,22 @@ const firstBridgeLayer = map => map.getStyle().layers.find(layer => layer['sourc
 export const RAIN_LAYER = 'rain';
 export const RAIN_REFRESH = 10 * 60_000; // The server shares each tile for as long
 export const rainTiles = () => [`${window.location.origin}/api/weather-tiles/rain/{z}/{x}/{y}.png?t=${Date.now()}`];
+
+// Wind from Open-Meteo's files of ECMWF's global model (about 9 km), read in the browser through
+// the 'om' protocol (map/maplibre.js). The protocol draws arrows in each tile, interpolated on a
+// lattice, but as tile geometry, so they're stretched as the map zooms in. Instead, a wind barb
+// of our own (map/windIcon.js) goes on each: the same size on screen at any zoom. Each arrow's
+// `value` is the speed in m/s, and `direction` the way the wind blows, in radians clockwise from
+// north (not wrapped). Barbs that would crowd each other are left out, the stronger kept. The
+// protocol credits Open-Meteo itself.
+export const WIND_LAYERS = ['wind'];
+export const WIND_REFRESH = 60 * 60_000; // The current hour is looked up when the URL changes
+const windUrl = () => 'om://https://openmeteo.s3.amazonaws.com/data_spatial/ecmwf_ifs/latest.json'
+  + '?time_step=current_time_1H&variable=wind_u_component_10m'
+  + `&arrows=true&hour=${Math.floor(Date.now() / WIND_REFRESH)}`;
+// Moves the wind on to the current hour's forecast
+export const refreshWind = map => map.getSource('wind')?.setUrl(windUrl());
+const STRONG_WIND_MS = 50 / 3.6; // As utils/wind.js: strong from 50 km/h
 
 // MetService weather warnings: a tint over each area, in its colour, under the roads
 export const WARNING_LAYERS = ['warning-areas', 'warning-outlines'];
@@ -214,6 +231,36 @@ export const addLayers = (map, traffic, dark, weather = false) => {
     trafficLayer('traffic', ['!', ON_BRIDGE], belowBridges);
     trafficLayer('traffic-bridges', ON_BRIDGE, belowLabels);
   }
+  // Wind barbs, above the roads and under the labels: faint, and in the strong-wind warning
+  // colour from 50 km/h
+  const speed = ['to-number', ['get', 'value']];
+  const knots = ['*', speed, 1.94384];
+  const strong = ['>=', speed, STRONG_WIND_MS];
+  barbIcons().forEach(([id, image]) => map.addImage(id, image, { pixelRatio: 2, sdf: true }));
+  map.addSource('wind', { type: 'vector', url: windUrl() });
+  map.addLayer({
+    id: 'wind',
+    type: 'symbol',
+    source: 'wind',
+    'source-layer': 'wind-arrows',
+    layout: {
+      visibility: 'none',
+      // The barb for the speed, to the nearest 5 knots
+      'icon-image': ['concat', 'barb-', ['to-string',
+        ['min', BARB_MAX, ['*', BARB_STEP, ['round', ['/', knots, BARB_STEP]]]]]],
+      // Into the wind: the way it blows, turned round
+      'icon-rotate': ['+', ['*', ['to-number', ['get', 'direction']], 180 / Math.PI], 180],
+      'icon-rotation-alignment': 'map',
+      // Room kept clear around each barb. Labels and icons are placed first (they're above), so
+      // the barbs give way to them, then to each other.
+      'icon-padding': 12,
+      'symbol-sort-key': ['-', speed], // Where they crowd, the strongest are kept
+    },
+    paint: {
+      'icon-color': ['case', strong, dark ? '#ffb74d' : '#e65100',
+        dark ? 'rgba(255, 255, 255, 0.55)' : 'rgba(20, 24, 28, 0.5)'],
+    },
+  }, belowLabels);
   map.addLayer({
     id: 'matched',
     type: 'line',

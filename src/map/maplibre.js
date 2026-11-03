@@ -2,10 +2,14 @@
 import * as maplibregl from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { alpha } from '@mui/material/styles';
+import { omProtocol } from '@openmeteo/weather-map-layer';
 
 // maplibre-gl 6 looks for its worker next to its own module, which isn't there once
 // Vite has pre-bundled (dev) or bundled (build) it; so point it at the real file
 maplibregl.setWorkerUrl(workerUrl);
+
+// Open-Meteo's weather files as map sources: 'om://' + a file URL (see map/layers.js, the wind)
+maplibregl.addProtocol('om', omProtocol);
 
 export default maplibregl;
 

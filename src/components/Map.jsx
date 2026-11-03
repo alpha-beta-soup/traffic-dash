@@ -11,8 +11,8 @@ import SitePopup, { DIRECTION_ORDER } from './SitePopup';
 import WarningDetails from './WarningDetails';
 import useLatest from '../hooks/useLatest';
 import {
-  EMPTY, EVENT_LAYERS, RAIN_LAYER, RAIN_REFRESH, SIGN_LAYERS, TRAFFIC_LAYERS, WARNING_LAYERS, addLayers, rainTiles,
-  trafficOpacity, trafficTiles,
+  EMPTY, EVENT_LAYERS, RAIN_LAYER, RAIN_REFRESH, SIGN_LAYERS, TRAFFIC_LAYERS, WARNING_LAYERS, WIND_LAYERS, WIND_REFRESH,
+  addLayers, rainTiles, refreshWind, trafficOpacity, trafficTiles,
 } from '../map/layers';
 import {
   addSignHover, hideExpandedSign, setSigns, startSignPaging,
@@ -219,10 +219,12 @@ export default function Map({
     // Traffic changes every few minutes: refetch the tiles (the server shares them between viewers)
     const refresh = setInterval(() => map.getSource('traffic')?.setTiles(trafficTiles()), TRAFFIC_REFRESH);
     const refreshRain = setInterval(() => map.getSource(RAIN_LAYER)?.setTiles(rainTiles()), RAIN_REFRESH);
+    const refreshWindHourly = setInterval(() => refreshWind(map), WIND_REFRESH);
 
     return () => {
       clearInterval(refresh);
       clearInterval(refreshRain);
+      clearInterval(refreshWindHourly);
       setLoaded(false);
       mapRef.current = null;
       map.remove();
@@ -273,6 +275,7 @@ export default function Map({
     EVENT_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.events ? 'visible' : 'none'));
     WARNING_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.warnings ? 'visible' : 'none'));
     if (map.getLayer(RAIN_LAYER)) map.setLayoutProperty(RAIN_LAYER, 'visibility', layers.rain ? 'visible' : 'none');
+    WIND_LAYERS.forEach(id => map.setLayoutProperty(id, 'visibility', layers.wind ? 'visible' : 'none'));
     if (!layers.warnings) setClickedWarnings(null);
     TRAFFIC_LAYERS.forEach(id => map.getLayer(id) && map.setPaintProperty(id, 'line-opacity', layers.traffic ? trafficOpacity : 0));
   }, [loaded, layers]);
