@@ -8,15 +8,16 @@
 // Output: eval-output/vehicles/index.html, with each frame annotated, and results.json.
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import * as ort from 'onnxruntime-node';
 import sharp from 'sharp';
 
-const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+import {
+  DEFAULT_MODEL, VEHICLES, cacheDir, cameraNames, frameTime, loadDetector, root,
+} from './detector.mjs';
+
 const { values: args } = parseArgs({
   options: {
-    model: { type: 'string', default: path.join(root, 'models', 'dfine_s_coco.onnx') },
+    model: { type: 'string', default: DEFAULT_MODEL },
     cameras: { type: 'string', default: '40' }, // How many cameras to sample a frame from
     sequence: { type: 'string', default: '228' }, // A camera to take consecutive frames from
     threshold: { type: 'string', default: '0.4' }, // Score to count a detection
@@ -24,32 +25,9 @@ const { values: args } = parseArgs({
   },
 });
 
-const INPUT = 640; // The model's input: frames are stretched to this square, as it was trained
 const THRESHOLDS = [0.3, 0.4, 0.5]; // Counts at each, to show how sensitive they are
-// COCO classes counted as vehicles, and the colours their boxes are drawn in
-const VEHICLES = {
-  2: { label: 'car', colour: '#00e676' },
-  3: { label: 'motorcycle', colour: '#ffea00' },
-  5: { label: 'bus', colour: '#2979ff' },
-  7: { label: 'truck', colour: '#ff9100' },
-};
 const SEQUENCE_LENGTH = 10;
-const DUPLICATE_OVERLAP = 0.7; // Intersection over union above which two boxes are one vehicle
-const cacheDir = path.join(root, 'cache');
 const threshold = Number(args.threshold);
-
-const sigmoid = x => 1 / (1 + Math.exp(-x));
-const frameTime = name => Number(path.basename(name, '.jpg'));
-
-// Camera names, if the dev server is running; ids otherwise
-async function cameraNames() {
-  try {
-    const res = await fetch('http://localhost:3000/api/cameras', { signal: AbortSignal.timeout(5000) });
-    return new Map((await res.json()).map(c => [String(c.id), c.name]));
-  } catch {
-    return new Map();
-  }
-}
 
 // The frames to look at: the latest from a spread of cameras (sampled across image sizes), any
 // from before today (other light), and a run of consecutive frames from one camera
@@ -76,49 +54,6 @@ async function pickFrames() {
     .slice(-SEQUENCE_LENGTH)
     .map(f => ({ id: args.sequence, file: path.join(sequenceDir, f), time: frameTime(f), kind: 'sequence' }));
   return [...spread, ...older, ...sequence];
-}
-
-// The frame as the model's input: RGB, channels first, 0–1
-async function toTensor(file) {
-  const { data } = await sharp(file).removeAlpha().resize(INPUT, INPUT, { fit: 'fill' }).raw()
-    .toBuffer({ resolveWithObject: true });
-  const pixels = INPUT * INPUT;
-  const input = new Float32Array(3 * pixels);
-  for (let i = 0; i < pixels; i++) {
-    for (let c = 0; c < 3; c++) input[c * pixels + i] = data[i * 3 + c] / 255;
-  }
-  return new ort.Tensor('float32', input, [1, 3, INPUT, INPUT]);
-}
-
-const overlap = (a, b) => {
-  const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
-  const h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
-  if (w <= 0 || h <= 0) return 0;
-  return (w * h) / (a.w * a.h + b.w * b.h - w * h);
-};
-
-// The vehicles among the model's queries, with boxes in the frame's pixels. DETR-style models
-// mostly give one box per object, but now and then a second, weaker one (often as another
-// class, e.g. car and truck): those are dropped.
-function vehicles(logits, boxes, width, height, minScore) {
-  const [, queries, classes] = logits.dims;
-  const found = [];
-  for (let q = 0; q < queries; q++) {
-    let best = null;
-    for (const cls of Object.keys(VEHICLES).map(Number)) {
-      const score = sigmoid(logits.data[q * classes + cls]);
-      if (score >= minScore && (!best || score > best.score)) best = { cls, score };
-    }
-    if (!best) continue;
-    const [cx, cy, w, h] = boxes.data.slice(q * 4, q * 4 + 4);
-    found.push({
-      ...best, label: VEHICLES[best.cls].label, x: (cx - w / 2) * width, y: (cy - h / 2) * height, w: w * width, h: h * height,
-    });
-  }
-  found.sort((a, b) => b.score - a.score);
-  const kept = [];
-  found.forEach(v => kept.some(k => overlap(k, v) > DUPLICATE_OVERLAP) || kept.push(v));
-  return kept;
 }
 
 async function annotate(frame, found, out) {
@@ -154,24 +89,14 @@ ${['latest', 'earlier day', 'sequence'].map(kind => {
 const names = await cameraNames();
 const frames = await pickFrames();
 console.log(`Loading ${args.model}`);
-const session = await ort.InferenceSession.create(args.model);
-const [inputName] = session.inputNames;
-const outputName = want => session.outputNames.find(n => n.includes(want)) ?? session.outputNames[want === 'logits' ? 0 : 1];
+const detector = await loadDetector(args.model, frames[0]?.file);
 await fs.mkdir(args.out, { recursive: true });
-
-// One run first, so the timings are of warm runs
-if (frames.length) await session.run({ [inputName]: await toTensor(frames[0].file) });
 
 const results = [];
 for (const frame of frames) {
-  const input = await toTensor(frame.file);
-  const started = performance.now();
-  const output = await session.run({ [inputName]: input });
-  const ms = Math.round(performance.now() - started);
-  const { width, height } = frame.width ? frame : await sharp(frame.file).metadata();
-  const logits = output[outputName('logits')];
-  const boxes = output[outputName('box')];
-  const found = vehicles(logits, boxes, width, height, Math.min(...THRESHOLDS));
+  const {
+    found, ms, width, height,
+  } = await detector.detect(frame.file, Math.min(...THRESHOLDS));
   const counted = found.filter(v => v.score >= threshold);
   const image = `${frame.id}-${frame.time}.jpg`;
   await annotate(frame, counted, path.join(args.out, image));

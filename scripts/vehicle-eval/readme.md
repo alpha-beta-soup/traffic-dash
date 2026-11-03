@@ -35,3 +35,21 @@ npm run eval:vehicles -- --cameras 60 --threshold 0.5 --sequence 282
 
 Open `eval-output/vehicles/index.html` to look through the frames with their boxes: green cars,
 yellow motorcycles, blue buses, orange trucks.
+
+## Trends
+
+```sh
+npm run eval:trends
+npm run eval:trends -- --cameras 10 --window 15
+```
+
+Counts every cached frame of the cameras with the most history and charts each one: the counts
+as faint dots, a rolling mean over a centred window (`--window`, minutes, 10), and a 95% band
+for that mean from the window's own spread (`src/utils/trend.js`). Counts vary a lot frame to
+frame (traffic bunches; one frame a minute samples it at random), so the trend and its band,
+not any one count, are what to read. The line is only drawn where its window holds 4 or more
+frames, and breaks across gaps (frames are only cached while someone views a camera).
+
+Output: `eval-output/trends/index.html`; hover a chart for each frame's count and the trend.
+Counts are kept in `counts.json` there, so reruns only count new frames.
+
