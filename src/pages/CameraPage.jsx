@@ -14,9 +14,11 @@ import EventDetails, { impactOf } from '../components/EventDetails';
 import LedSign from '../components/LedSign';
 import WarningDetails from '../components/WarningDetails';
 import ToggleButton from '../components/ToggleButton';
+import VehicleTrend from '../components/VehicleTrend';
 import useLiveImage from '../hooks/useLiveImage';
 import { useLoopFrames } from '../hooks/useLoop';
 import useNow from '../hooks/useNow';
+import useVehicleCounts from '../hooks/useVehicleCounts';
 import usePlayer from '../hooks/usePlayer';
 import useWeather from '../hooks/useWeather';
 import { TextLink, cameraPath, navigate } from '../router';
@@ -30,6 +32,7 @@ const MAX_UPSCALE = 2; // Small cameras (480×270) only blur beyond about twice 
 const NEARBY = 1000; // metres: road events listed on the page
 const SIGNS_NEARBY = 2; // km: message signs shown on the page
 const MAX_SIGNS = 4;
+const VEHICLE_HOURS = 3; // Of vehicle counts charted
 const DASHBOARD_ZOOM = 11; // The dashboard map's zoom when it has no saved view
 
 const clockFormat = new Intl.DateTimeFormat('en-NZ', {
@@ -387,6 +390,7 @@ function CameraView({
   const frames = useLoopFrames(id, !unavailable && !!liveTime, liveTime);
   const player = usePlayer(frames, id);
   const weather = useWeather(config.weather, lat, lon);
+  const vehicleCounts = useVehicleCounts(id, config.vehicles, VEHICLE_HOURS, liveTime);
   const [notice, setNotice] = useState(null);
   const [zoom, setZoom] = useState(null); // The zoomed view into the image (see LargeImage)
   const [zoomId, setZoomId] = useState(id);
@@ -485,6 +489,12 @@ function CameraView({
               <WarningDetails warning={warning} />
             </Paper>
           ))}
+          {config.vehicles && (
+            <Paper sx={{ p: 2, mt: 2 }}>
+              <Typography variant="subtitle2" sx={{ color: 'text.secondary', mb: 0.5 }}>Vehicles in view</Typography>
+              <VehicleTrend counts={vehicleCounts} cursor={time ? time.getTime() : null} />
+            </Paper>
+          )}
           {config.mapStyle && (
             <CameraMap
               camera={camera}

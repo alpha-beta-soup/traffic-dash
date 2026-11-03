@@ -7,7 +7,7 @@ contact sheet to `eval-output/vehicles/`.
 
 ## Setup
 
-1. Dev dependencies: `npm i -D onnxruntime-node sharp`
+1. Dependencies (the server uses them too, to count vehicles): `npm i onnxruntime-node sharp`
 2. The model, [D-FINE small](https://huggingface.co/ustc-community/dfine-small-coco) (Apache-2.0,
    trained on COCO), as exported to ONNX by onnx-community (41.5 MB):
 

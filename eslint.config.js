@@ -4,7 +4,7 @@ import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 
 export default [
-  { ignores: ['dist', 'cache', 'node_modules', 'models', 'eval-output'] },
+  { ignores: ['dist', 'cache', 'node_modules', 'models', 'eval-output', 'vehicle-counts'] },
   js.configs.recommended,
   {
     files: ['src/**/*.{js,jsx}'],

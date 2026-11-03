@@ -23,8 +23,9 @@ const prune = async (dir) => {
     .map(name => fs.rm(path.join(dir, name), { force: true })));
 };
 
+// Saves a frame; true if it's new (not already saved)
 export const cacheFrame = async (cameraId, date, buffer) => {
-  if (!enabled() || Number.isNaN(date.getTime())) return;
+  if (!enabled() || Number.isNaN(date.getTime())) return false;
   const dir = path.join(cacheDir, String(cameraId));
   const file = path.join(dir, frameName(date));
   try {
@@ -32,8 +33,10 @@ export const cacheFrame = async (cameraId, date, buffer) => {
     // Same Last-Modified means the camera hasn't produced a new frame
     await fs.writeFile(file, buffer, { flag: 'wx' });
     await prune(dir);
+    return true;
   } catch (err) {
     if (err.code !== 'EEXIST') console.error(err.message);
+    return false;
   }
 };
 
@@ -49,6 +52,16 @@ export const removeFrames = async (cameraId, hash) => {
   } catch (err) {
     if (err.code !== 'ENOENT') console.error(err.message);
   }
+};
+
+// Every camera's cached frames: [{ id, time, file }]
+export const listAllFrames = async () => {
+  const cutoff = Date.now() - maxAge();
+  const ids = (await fs.readdir(cacheDir).catch(() => [])).filter(name => /^\d+$/.test(name));
+  const perCamera = await Promise.all(ids.map(async id => (await fs.readdir(path.join(cacheDir, id)).catch(() => []))
+    .map(name => ({ id, time: frameTime(name), file: path.join(cacheDir, id, name) }))
+    .filter(({ time }) => time >= cutoff)));
+  return perCamera.flat();
 };
 
 export const listFrames = async (cameraId) => {

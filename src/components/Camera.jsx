@@ -15,8 +15,10 @@ import CameraWeather from './CameraWeather';
 import FadeImage from './FadeImage';
 import { warningChipColours } from './WarningDetails';
 import ToggleButton from './ToggleButton';
+import { VehicleSparkline } from './VehicleTrend';
 import useLiveImage from '../hooks/useLiveImage';
 import useNow from '../hooks/useNow';
+import useVehicleCounts from '../hooks/useVehicleCounts';
 import useWeather from '../hooks/useWeather';
 import { Link, cameraPath } from '../router';
 import { useLoopFrames, useLoopPlayback } from '../hooks/useLoop';
@@ -29,6 +31,8 @@ import {
   timeAgo,
 } from '../utils';
 import loadingImage from '../../data/hatchback_loading.gif';
+
+const VEHICLE_HOURS = 0.5; // The sparkline's span
 
 const overlayChip = {
   bgcolor: theme => alpha(theme.palette.background.paper, 0.85),
@@ -95,6 +99,7 @@ export default function Camera({
   // Reload the frame list whenever a new live frame arrives
   const liveTime = live?.time.getTime();
   const frames = useLoopFrames(id, looping && !unavailable && !!liveTime, liveTime);
+  const vehicleCounts = useVehicleCounts(id, config.vehicles && !unavailable, VEHICLE_HOURS, liveTime);
   const shown = useLoopPlayback(frames, looping);
 
   // A link to the camera's own page
@@ -163,6 +168,7 @@ export default function Camera({
           {replaceAll(description, descriptionReplace)}
         </Typography>
         <CameraWeather data={weather} />
+        {config.vehicles && <VehicleSparkline counts={vehicleCounts} />}
       </CardContent>
       {/* Buttons shrink to their labels, and wrap rather than overflow on narrow cards */}
       <CardActions disableSpacing sx={{ flexWrap: 'wrap', gap: 0.5, '& .MuiButton-root': { minWidth: 0, px: 1 } }}>

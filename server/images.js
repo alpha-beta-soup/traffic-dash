@@ -6,6 +6,7 @@
 // - NZTA's stock "unavailable" image is flagged (placeholder), and never cached as a frame
 import { cacheFrame, removeFrames } from './cache.js';
 import { imageHash, isPlaceholder } from './placeholders.js';
+import { countFrame } from './vehicles.js';
 
 const FRESH_MS = 10_000;
 const IDLE_MS = 5 * 60_000; // Forget cameras nobody has asked for in this long
@@ -25,8 +26,10 @@ const refresh = async (camera, entry) => {
     const hash = imageHash(entry.buffer);
     const wasPlaceholder = entry.placeholder;
     entry.placeholder = isPlaceholder(hash, camera.id);
-    if (!entry.placeholder) await cacheFrame(camera.id, entry.lastModified ? new Date(entry.lastModified) : new Date(), entry.buffer);
-    else if (!wasPlaceholder) await removeFrames(camera.id, hash); // Any saved before it was recognised
+    if (!entry.placeholder) {
+      const time = entry.lastModified ? new Date(entry.lastModified) : new Date();
+      if (await cacheFrame(camera.id, time, entry.buffer)) countFrame(camera.id, time.getTime(), entry.buffer);
+    } else if (!wasPlaceholder) await removeFrames(camera.id, hash); // Any saved before it was recognised
   }
   entry.fetchedAt = Date.now();
 };

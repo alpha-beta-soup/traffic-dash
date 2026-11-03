@@ -31,6 +31,8 @@ All keys are optional. Without them you still get cameras and variable message s
 | `PORT` | Server port | 3000 |
 | `CACHE_ENABLED` | Cache camera frames to `cache/` for animation | true |
 | `CACHE_MAX_AGE_HOURS` | Frames older than this are pruned | 6 |
+| `VEHICLE_MODEL` | The vehicle detector (ONNX); vehicle counting is on when this file exists. See [scripts/vehicle-eval](scripts/vehicle-eval/readme.md) for where to get it | `models/dfine_s_coco.onnx` |
+| `VEHICLE_COUNTS_DAYS` | Vehicle counts are kept this long, in `vehicle-counts/` | 7 |
 | `VITE_MIN_REFRESH` / `VITE_MAX_REFRESH` | Each camera refreshes at a random interval in this range (ms) | 10000 / 25000 |
 
 ### Dev server quirk
@@ -48,6 +50,7 @@ Occasionally a file change isn't picked up by the dev server (`node --watch` for
 - **Minimise:** shrinks the map to a card, keeping the area in view.
 - **Theme** (top bar): Auto follows your system's light or dark setting; or pick Light or Dark.
 - **Road events:** crashes, closures, roadworks and hazards, as NZ-road-sign-style icons; hover one for details. Cameras within 500m of a closure or delay are flagged on their cards.
+- **Vehicles in view** (with the detector model): each frame the server saves is counted for cars, motorcycles, buses and trucks. Camera pages chart the last 3 hours: each frame's count, the average over 10 minutes, and its 95% band; cards show the last 30 minutes as a sparkline. Counts vary a lot frame to frame, as traffic bunches, so the trend is what to read; far-off and hidden vehicles are missed, so read it against the camera's own level, not as an exact number.
 - **Weather warnings:** MetService's current watches and warnings, as areas tinted in their colour (yellow, orange or red); click inside one for its details. Cameras inside a warning are flagged on their cards and show it on their pages.
 
 Settings (pins, filter, layers, looping, theme) and the map's position are remembered in the browser.
@@ -57,6 +60,7 @@ Settings (pins, filter, layers, looping, theme) and the map's position are remem
 - **Cameras and signs** come from the public [trafficnz.info REST API](https://trafficnz.info/service/traffic/rest/4/cameras/all), which replaced the old credentialed InfoConnect API. The server shares the lists between viewers for a minute, and each camera's image for 10 seconds.
 - **Unavailable cameras:** NZTA sometimes serves a stock "This webcam is temporarily unavailable" image before marking a camera offline. The server recognises it (by its hash, or by the same image coming from several cameras), reports the camera as unavailable, and never caches it as a frame.
 - **Animation:** frames are cached only while someone is viewing a camera, so a loop can be shorter than 30 minutes.
+- **Vehicle counting** runs D-FINE (small, COCO-trained, Apache-2.0) through onnxruntime on the server, about 0.3 s a frame on a CPU, one frame at a time: new frames first, then any cached before a restart. Like the frames, counts exist only for cameras someone has viewed.
 - **Cross-origin isolation:** the server (and Vite) send `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: credentialless`, so the wind layer can share its weather data with its workers instead of copying it for every tile. Anything embedded from another site must allow CORS.
 - **Congestion** is read from Mapbox Traffic v1 tiles in the browser: each camera is matched to segments within 200m, heading the way it looks, on the most important road nearby. NZTA's camera direction is sometimes a route label rather than a compass bearing (e.g. SH16 "Northbound" heading west); then roads in both directions are used. Streets and service lanes are never used.
 
@@ -71,6 +75,7 @@ Weather warnings: © MetService, licensed [Creative Commons BY 4.0](https://crea
 - [OpenFreeMap](https://openfreemap.org/) and [MapLibre GL JS](https://maplibre.org/)
 - [OpenWeatherMap](https://openweathermap.org/)
 - [Open-Meteo](https://open-meteo.com/) and its [weather map layer](https://github.com/open-meteo/weather-map-layer) (GPL-2.0), for the wind layer: data CC BY 4.0
+- [D-FINE](https://github.com/Peterande/D-FINE) (Apache-2.0), via [onnx-community](https://huggingface.co/onnx-community/dfine_s_coco-ONNX) and [ONNX Runtime](https://onnxruntime.ai/), for counting vehicles
 - [MetService severe weather warnings](https://www.metservice.com/warnings/home), from its public CAP feed (CC BY 4.0)
 - [Weather Icons](https://erikflowers.github.io/weather-icons/)
 
