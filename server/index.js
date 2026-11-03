@@ -2,12 +2,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 
-import { cacheDir, listAllFrames, listFrames } from './cache.js';
+import { cacheDir, listFrames } from './cache.js';
 import darkStyle from './darkStyle.js';
 import { getImage, showingPlaceholder } from './images.js';
 import { normaliseCamera, normaliseEvent, normaliseSign } from './normalise.js';
 import { cameraRoute, normaliseJourneys } from './routes.js';
-import { startVehicleCounting, vehicleCounts, vehiclesEnabled } from './vehicles.js';
+import { vehicleCounts, vehiclesEnabled } from './vehicles.js';
 import {
   FEED as WARNINGS_FEED, feedLinks, isCurrent, parseAlert,
 } from './weatherWarnings.js';
@@ -105,16 +105,17 @@ const getSigns = memo(60_000, async () => {
 
 const handle = fn => (req, res, next) => fn(req, res).catch(next);
 
-app.get('/api/config', (req, res) => {
+app.get('/api/config', handle(async (req, res) => {
   res.json({
     weather: !!process.env.OPENWEATHERMAP_APIKEY,
     traffic: !!process.env.MAPBOX_TOKEN,
-    vehicles: vehiclesEnabled(),
+    // Whether the vehicle counter (counter/, a process of its own) is running
+    vehicles: await vehiclesEnabled(),
     mapStyle: MAP_STYLE,
     // By default, the light style darkened (server/darkStyle.js), so both themes are one map
     mapStyleDark: process.env.MAP_STYLE_DARK || MAP_STYLE_DARK_PATH,
   });
-});
+}));
 
 const getDarkStyle = memo(6 * 60 * 60 * 1000, async () => darkStyle(await fetchJson(MAP_STYLE)));
 
@@ -177,13 +178,13 @@ app.get('/api/cameras/:id/history', handle(async (req, res) => {
   res.json(await listFrames(req.params.id));
 }));
 
-// Vehicles counted in the camera's frames: [{ time, count }], for the last `hours` (up to a week)
+// Vehicles counted in the camera's frames, by the counter: [{ time, count }], for the last
+// `hours` (up to a week)
 const MAX_COUNT_HOURS = 7 * 24;
-app.get('/api/cameras/:id/vehicles', (req, res) => {
-  if (!vehiclesEnabled()) return res.sendStatus(404);
+app.get('/api/cameras/:id/vehicles', handle(async (req, res) => {
   const hours = Math.min(MAX_COUNT_HOURS, Number(req.query.hours) || 6);
-  return res.json(vehicleCounts(Number(req.params.id), Date.now() - hours * 3600_000));
-});
+  res.json(await vehicleCounts(req.params.id, Date.now() - hours * 3600_000));
+}));
 
 app.get('/api/weather', handle(async (req, res) => {
   const key = process.env.OPENWEATHERMAP_APIKEY;
@@ -233,7 +234,3 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
 
 app.listen(PORT, () => console.log(`traffic-dash server on http://localhost:${PORT}`));
 
-// In the background: frames cached before this start are counted behind new ones
-listAllFrames()
-  .then(backlog => startVehicleCounting({ backlog }))
-  .catch(err => console.error(`Vehicle counting: ${err.message}`));

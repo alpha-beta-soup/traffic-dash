@@ -3,17 +3,15 @@
 // pruned once they are older than CACHE_MAX_AGE_HOURS.
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
+import { cacheDir, frameTime, maxAge } from '../shared/frames.js';
 import { imageHash } from './placeholders.js';
 
-export const cacheDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'cache');
+export { cacheDir };
 
-const maxAge = () => (Number(process.env.CACHE_MAX_AGE_HOURS) || 6) * 3600_000;
 const enabled = () => process.env.CACHE_ENABLED !== 'false';
 
 const frameName = date => `${date.getTime()}.jpg`;
-const frameTime = name => Number(path.basename(name, '.jpg'));
 
 const prune = async (dir) => {
   const cutoff = Date.now() - maxAge();
@@ -52,16 +50,6 @@ export const removeFrames = async (cameraId, hash) => {
   } catch (err) {
     if (err.code !== 'ENOENT') console.error(err.message);
   }
-};
-
-// Every camera's cached frames: [{ id, time, file }]
-export const listAllFrames = async () => {
-  const cutoff = Date.now() - maxAge();
-  const ids = (await fs.readdir(cacheDir).catch(() => [])).filter(name => /^\d+$/.test(name));
-  const perCamera = await Promise.all(ids.map(async id => (await fs.readdir(path.join(cacheDir, id)).catch(() => []))
-    .map(name => ({ id, time: frameTime(name), file: path.join(cacheDir, id, name) }))
-    .filter(({ time }) => time >= cutoff)));
-  return perCamera.flat();
 };
 
 export const listFrames = async (cameraId) => {

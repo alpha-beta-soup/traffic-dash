@@ -6,6 +6,8 @@ A dashboard for New Zealand traffic cameras, message signs and congestion.
 
 A web app (React + MapLibre, built with Vite) with a small Node/Express server. The server proxies the NZTA traffic feeds, which can't be called from a browser because they send no CORS headers. It also keeps API keys out of the browser, shares upstream requests between viewers, and caches recent camera frames on disk so the cameras can be animated.
 
+An optional second process, the vehicle counter (`counter/`), counts vehicles in the cached frames. It's heavy, steady work, so it runs apart from the server: the two share only files on disk, the frames in `cache/` and the counts in `vehicle-counts/`.
+
 ## Running
 
 Requires Node 22+.
@@ -13,10 +15,10 @@ Requires Node 22+.
 ```sh
 cp .env.template .env   # optional: fill in keys
 npm install
-npm run dev             # server on :3000, Vite dev server on :5173 (proxies /api to the server)
+npm run dev             # server on :3000, vehicle counter, Vite dev server on :5173 (proxies /api to the server)
 ```
 
-For production: `npm run build && npm start`, then open http://localhost:3000.
+For production: `npm run build && npm start`, then open http://localhost:3000; and, for vehicle counts, `npm run counter` beside it, in the same folder (or with the same `cache/` and `vehicle-counts/`). Without the counter, or without its model, the app works as before, without vehicle counts.
 
 Other scripts: `npm test` (Node's built-in test runner; no extra dependencies) and `npm run lint`.
 
@@ -60,7 +62,7 @@ Settings (pins, filter, layers, looping, theme) and the map's position are remem
 - **Cameras and signs** come from the public [trafficnz.info REST API](https://trafficnz.info/service/traffic/rest/4/cameras/all), which replaced the old credentialed InfoConnect API. The server shares the lists between viewers for a minute, and each camera's image for 10 seconds.
 - **Unavailable cameras:** NZTA sometimes serves a stock "This webcam is temporarily unavailable" image before marking a camera offline. The server recognises it (by its hash, or by the same image coming from several cameras), reports the camera as unavailable, and never caches it as a frame.
 - **Animation:** frames are cached only while someone is viewing a camera, so a loop can be shorter than 30 minutes.
-- **Vehicle counting** runs D-FINE (small, COCO-trained, Apache-2.0) through onnxruntime on the server, looking at each frame whole and in overlapping tiles of about 320 px, which finds about half as many vehicles again (mostly small, far-off ones): about 2 s a frame on a CPU. Frames are counted one at a time, new ones first, then any cached before a restart. Parked vehicles are left out because they'd be a floor under the count, flattening its rises and falls; at one camera they were a quarter of what was detected. Like the frames, counts exist only for cameras someone has viewed.
+- **Vehicle counting** runs in its own process (`counter/`), so it never slows the server, and can be given its own CPU or machine. It looks for new frames in `cache/` every 5 seconds, writes counts to `vehicle-counts/`, and a heartbeat there that tells the server it's running. It runs D-FINE (small, COCO-trained, Apache-2.0) through onnxruntime, looking at each frame whole and in overlapping tiles of about 320 px, which finds about half as many vehicles again (mostly small, far-off ones): about 2 s a frame on a CPU. Frames are counted one at a time, new ones first, then any cached before a restart. Parked vehicles are left out because they'd be a floor under the count, flattening its rises and falls; at one camera they were a quarter of what was detected. Like the frames, counts exist only for cameras someone has viewed.
 - **Cross-origin isolation:** the server (and Vite) send `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: credentialless`, so the wind layer can share its weather data with its workers instead of copying it for every tile. Anything embedded from another site must allow CORS.
 - **Congestion** is read from Mapbox Traffic v1 tiles in the browser: each camera is matched to segments within 200m, heading the way it looks, on the most important road nearby. NZTA's camera direction is sometimes a route label rather than a compass bearing (e.g. SH16 "Northbound" heading west); then roads in both directions are used. Streets and service lanes are never used.
 

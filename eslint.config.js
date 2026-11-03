@@ -27,7 +27,7 @@ export default [
     },
   },
   {
-    files: ['server/**/*.js', 'scripts/**/*.{js,mjs}', 'tests/**/*.{js,mjs}', '*.config.js'],
+    files: ['server/**/*.js', 'counter/**/*.js', 'shared/**/*.js', 'scripts/**/*.{js,mjs}', 'tests/**/*.{js,mjs}', '*.config.js'],
     languageOptions: { globals: globals.node },
   },
 ];

@@ -1,6 +1,6 @@
 // Vehicle detection in camera frames: a COCO-trained object detector (by default D-FINE small,
 // Apache-2.0, as ONNX) through onnxruntime, counting cars, motorcycles, buses and trucks. Used
-// by the server (server/vehicles.js) and the offline evaluations (scripts/vehicle-eval).
+// by the vehicle counter (counting.js) and the offline evaluations (scripts/vehicle-eval).
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 

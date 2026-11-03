@@ -1,4 +1,4 @@
-// What the evaluations share: the detector (server/vehicleDetector.js), and the frames in cache/
+// What the evaluations share: the detector (counter/detector.js), and the frames in cache/
 // and running it over them
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 export const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const cacheDir = path.join(root, 'cache');
 
-export { DEFAULT_MODEL, VEHICLES, loadDetector } from '../../server/vehicleDetector.js';
+export { DEFAULT_MODEL, VEHICLES, loadDetector } from '../../counter/detector.js';
 
 export const frameTime = name => Number(path.basename(name, '.jpg'));
 
