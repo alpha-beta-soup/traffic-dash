@@ -6,6 +6,7 @@
   "type": "module",
   "author": "Richard Law",
   "license": "MIT",
+  "homepage": "https://github.com/alpha-beta-soup/traffic-dash",
   "engines": {
     "node": ">=24"
   },

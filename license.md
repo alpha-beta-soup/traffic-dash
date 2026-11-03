@@ -19,3 +19,12 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+The app as built (the JavaScript sent to the browser) includes Open-Meteo's
+[weather map layer](https://github.com/open-meteo/weather-map-layer), licensed
+under the GNU General Public License, version 2, so the app as a whole is
+distributed under GPL-2.0 terms. This project's own code stays under the MIT
+licence above, which allows it to be included in GPL-2.0 software. The source
+is at https://github.com/alpha-beta-soup/traffic-dash.

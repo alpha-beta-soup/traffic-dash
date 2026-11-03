@@ -92,6 +92,10 @@ Camera images and sign data: © Waka Kotahi NZ Transport Agency. The [NZTA terms
 
 Weather warnings: © MetService, licensed [Creative Commons BY 4.0](https://creativecommons.org/licenses/by/4.0/). This project is not affiliated with or endorsed by MetService.
 
+## Licence
+
+MIT (see [license.md](license.md)). The app as built includes Open-Meteo's weather map layer (GPL-2.0), so the app as a whole is distributed under GPL-2.0, with its source here; the version number in the app links to it.
+
 ## Thanks to
 
 - [NZTA traffic information (trafficnz.info)](https://trafficnz.info/)

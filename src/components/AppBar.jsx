@@ -1,13 +1,14 @@
 import MuiAppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Link from '@mui/material/Link';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 
 import ToggleButton from './ToggleButton';
 import { THEME_SETTINGS } from '../theme';
 import useNow from '../hooks/useNow';
-import { version } from '../../package.json';
+import { homepage, version } from '../../package.json';
 
 const clockFormat = new Intl.DateTimeFormat('en-NZ', {
   weekday: 'long',
@@ -63,9 +64,9 @@ export default function AppBar({
           >
             {themeSetting === 'auto' ? `Auto (${mode})` : themeSetting}
           </Button>
-          <Typography variant="subtitle1" color="secondary">
+          <Link variant="subtitle1" color="secondary" underline="hover" href={homepage} target="_blank" rel="noopener" title="Source code">
             v{version}
-          </Typography>
+          </Link>
         </Box>
       </Toolbar>
     </MuiAppBar>
