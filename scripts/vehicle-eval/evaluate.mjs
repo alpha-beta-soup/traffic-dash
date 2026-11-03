@@ -2,7 +2,7 @@
 // frames? Runs D-FINE (small, COCO-trained, Apache-2.0) on frames already in cache/, draws what
 // it found onto copies of them, and writes a contact sheet to look through.
 //
-//   npm run eval:vehicles -- [--model models/dfine_s_coco.onnx] [--cameras 40] [--threshold 0.4]
+//   npm run eval:vehicles -- [--model small] [--cameras 40] [--threshold 0.4]
 //     [--tile 320]
 //
 // With --tile, each frame is also looked at in overlapping tiles of about that many pixels (for

@@ -1,5 +1,5 @@
-// The vehicle counter: a process of its own beside the server, so its heavy, steady work (about
-// 2 s of CPU a frame) never slows the server, and can be given its own CPU, restarted, or moved to
+// The vehicle counter: a process of its own beside the server, so its heavy, steady work (seconds
+// of CPU a frame) never slows the server, and can be given its own CPU, restarted, or moved to
 // another machine with the same disk. It and the server share only files: it counts the frames
 // the server caches (cache/), and writes counts the server serves (vehicle-counts/).
 //

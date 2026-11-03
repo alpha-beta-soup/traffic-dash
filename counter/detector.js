@@ -5,7 +5,20 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const DEFAULT_MODEL = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'models', 'dfine_s_coco.onnx');
+const MODELS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'models');
+// The detectors to choose from by name (VEHICLE_MODEL), downloaded into models/ (see
+// scripts/vehicle-eval/readme.md)
+export const MODELS = {
+  // D-FINE medium, trained on Objects365 then COCO: fewer false vehicles (arrows painted on the
+  // road, signs, the camera's logo) and more real ones, far off and at night, for about 1.75 times
+  // the work
+  medium: 'dfine_m_obj2coco.onnx',
+  // D-FINE small, trained on COCO: cheaper
+  small: 'dfine_s_coco.onnx',
+};
+// A model by name (MODELS), or the path to another detector with the same inputs and outputs
+export const modelPath = model => (MODELS[model] ? path.join(MODELS_DIR, MODELS[model]) : model);
+export const DEFAULT_MODEL = 'medium';
 
 const INPUT = 640; // The model's input: frames are stretched to this square, as it was trained
 const PIXELS = INPUT * INPUT;
@@ -90,7 +103,7 @@ function vehicles(logits, boxes, at, region, frame, minScore) {
   return found;
 }
 
-// { detect(image, minScore, { tile, far }) → { found, seen, ms, width, height, passes } }, for an
+// For a model (by name or path): { detect(image, minScore, { tile, far }) → { found, seen, ms, width, height, passes } }, for an
 // image as a file path or a Buffer. With `tile` (px), the frame's tiles (or the `far` share of
 // their rows) are looked at too, each a pass of the model like the whole frame (see tiles());
 // `seen` is every pass's boxes before merging. Passes go to the model `batch` at a time. Warmed
@@ -101,7 +114,7 @@ export async function loadDetector(model = DEFAULT_MODEL, warmUp, { batch = BATC
   // VEHICLE_THREADS: how many threads the model runs on (by default, one per core), to match the
   // CPU the counter is given
   const threads = Number(process.env.VEHICLE_THREADS) || 0;
-  const session = await ort.InferenceSession.create(model, threads ? { intraOpNumThreads: threads, interOpNumThreads: 1 } : {});
+  const session = await ort.InferenceSession.create(modelPath(model), threads ? { intraOpNumThreads: threads, interOpNumThreads: 1 } : {});
   const [inputName] = session.inputNames;
   const outputName = want => session.outputNames.find(n => n.includes(want)) ?? session.outputNames[want === 'logits' ? 0 : 1];
 

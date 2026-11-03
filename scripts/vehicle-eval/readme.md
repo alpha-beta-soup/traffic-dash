@@ -8,14 +8,21 @@ contact sheet to `eval-output/vehicles/`.
 ## Setup
 
 1. Dependencies (the server uses them too, to count vehicles): `npm i onnxruntime-node sharp`
-2. The model, [D-FINE small](https://huggingface.co/ustc-community/dfine-small-coco) (Apache-2.0,
-   trained on COCO), as exported to ONNX by onnx-community (41.5 MB):
+2. The models, [D-FINE](https://github.com/Peterande/D-FINE) (Apache-2.0) as exported to ONNX by
+   onnx-community: medium, trained on Objects365 then COCO (78.6 MB; the default), and small,
+   trained on COCO (41.5 MB; cheaper). `VEHICLE_MODEL` picks one, and `--model` here.
 
    ```sh
    mkdir -p models
+   curl -L -o models/dfine_m_obj2coco.onnx \
+     https://huggingface.co/onnx-community/dfine_m_obj2coco-ONNX/resolve/main/onnx/model.onnx
    curl -L -o models/dfine_s_coco.onnx \
      https://huggingface.co/onnx-community/dfine_s_coco-ONNX/resolve/main/onnx/model.onnx
    ```
+
+   On the same frames, medium found about 5% more vehicles: fewer that weren't (arrows painted on
+   the road, signs, the camera's logo) and more that were, far off and at night, where small saw
+   only headlights. It takes about 1.75 times as long.
 
 `models/` and `eval-output/` are ignored by git.
 
@@ -30,7 +37,7 @@ npm run eval:vehicles -- --cameras 60 --threshold 0.5 --sequence 282
 - `--sequence`: a camera to take its last 10 frames from, to see how steady the count is (228)
 - `--threshold`: the detection score counted as a vehicle (0.4); counts at 0.3, 0.4 and 0.5
   are listed for each frame
-- `--model`: another detector with the same inputs and outputs, e.g. RT-DETRv2
+- `--model`: `medium` (the default) or `small`, or another detector with the same inputs and outputs, e.g. RT-DETRv2
   (`onnx-community/rtdetr_v2_r18vd-ONNX`)
 
 Open `eval-output/vehicles/index.html` to look through the frames with their boxes: green cars,

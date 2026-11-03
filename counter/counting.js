@@ -15,7 +15,7 @@ import { listAllFrames } from '../shared/frames.js';
 import {
   countsDir, countsFile, isCountsFile, statusFile,
 } from '../shared/vehicleCounts.js';
-import { DEFAULT_MODEL, loadDetector } from './detector.js';
+import { DEFAULT_MODEL, loadDetector, modelPath } from './detector.js';
 
 const THRESHOLD = 0.4; // Detection score counted as a vehicle (see scripts/vehicle-eval)
 const COUNTS_DAYS = () => Number(process.env.VEHICLE_COUNTS_DAYS) || 7;
@@ -167,7 +167,7 @@ export const vehicleCounts = (id, since = 0) => [...cameraCounts(String(id))]
   .sort(([a], [b]) => a - b)
   .map(([time, count]) => ({ time, count }));
 
-// Starts counting if the model is there, loading the counts kept so far; frames are then queued
+// Starts counting if the model (by name or path) is there, loading the counts kept so far; frames are then queued
 // by scan(). Counts are written in batches, `saveDelay` ms after a change. A `detector`
 // ({ detect }) and `dir` can be given instead, e.g. for tests.
 export async function startVehicleCounting({
@@ -175,9 +175,9 @@ export async function startVehicleCounting({
 } = {}) {
   if (!detector) {
     try {
-      await fs.access(model);
+      await fs.access(modelPath(model));
     } catch {
-      console.log(`Vehicle counting off: no model at ${model} (see scripts/vehicle-eval/readme.md)`);
+      console.log(`Vehicle counting off: no model at ${modelPath(model)} (see scripts/vehicle-eval/readme.md)`);
       return false;
     }
   }
