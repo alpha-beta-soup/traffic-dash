@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { MAX_REFRESH, MIN_REFRESH } from '../consts';
+import { ANIMATION_FADE, MAX_REFRESH, MIN_REFRESH } from '../consts';
 import { jpegSize, randomInt } from '../utils';
+
+const RELEASE_MARGIN = 2000; // ms past the crossfade, for a slow decode or a busy page
 
 // Polls a camera's latest image through the server, at a random interval in the refresh range
 // so cameras don't all ask at once. Each fetch also lets the server cache a new frame for loops.
@@ -43,7 +45,10 @@ export default function useLiveImage(camera, unavailable) {
       const size = jpegSize(new Uint8Array(await blob.slice(0, 65536).arrayBuffer()));
       if (!isCurrent()) return;
       const src = URL.createObjectURL(blob);
-      if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
+      // The previous image is released once the crossfade to this one (FadeImage) is over: it's
+      // shown underneath until then, and released any sooner it would go blank, a flicker
+      const previous = objectUrl.current;
+      if (previous) setTimeout(() => URL.revokeObjectURL(previous), ANIMATION_FADE + RELEASE_MARGIN);
       objectUrl.current = src;
       setLive({ src, time, id, size });
       setFailed(false);
