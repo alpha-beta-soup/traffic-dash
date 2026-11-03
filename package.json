@@ -22,7 +22,8 @@
     "eval:vehicles": "node scripts/vehicle-eval/evaluate.mjs",
     "eval:trends": "node scripts/vehicle-eval/trends.mjs",
     "eval:occupancy": "node scripts/vehicle-eval/occupancy.mjs",
-    "eval:road": "node scripts/vehicle-eval/road.mjs"
+    "eval:road": "node scripts/vehicle-eval/road.mjs",
+    "eval:far": "node scripts/vehicle-eval/far.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

@@ -21,9 +21,11 @@ const THRESHOLD = 0.4; // Detection score counted as a vehicle (see scripts/vehi
 const COUNTS_DAYS = () => Number(process.env.VEHICLE_COUNTS_DAYS) || 7;
 const MAX_QUEUE = 1000; // Beyond this, the oldest waiting frames are dropped
 // Frames are looked at in overlapping tiles of about this many px as well as whole: about half as
-// many vehicles again, mostly small and far off, at about 7 times the cost (see detector.js and
-// scripts/vehicle-eval)
+// many vehicles again, mostly small and far off (see detector.js and scripts/vehicle-eval). Only
+// the top half of the rows of tiles (rounded up), the far side of the road: 96% of the vehicles
+// all of them find, for 62% of the time.
 const TILE = 320;
+const FAR = 0.5;
 const PARKED_WINDOW = 15 * 60_000;
 const PARKED_SHARE = 0.6; // Of the frames near it with a box in the same place
 const PARKED_MIN_FRAMES = 6; // Near it, to judge
@@ -104,7 +106,7 @@ const run = async () => {
       queued.delete(key(id, time));
       if (cameraCounts(id).has(time)) continue;
       try {
-        const { found } = await detector.detect(image, THRESHOLD, { tile: TILE });
+        const { found } = await detector.detect(image, THRESHOLD, { tile: TILE, far: FAR });
         record(id, time, moving(id, time, found));
       } catch (err) {
         failed.add(key(id, time));

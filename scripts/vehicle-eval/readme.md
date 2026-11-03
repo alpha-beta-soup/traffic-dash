@@ -57,6 +57,32 @@ Counts are kept in `counts.json` there, so reruns only count new frames.
 about half as many vehicles again, mostly small ones in the mid-distance and in queues, at about
 7 times the cost. `npm run eval:vehicles -- --tile 320` shows which boxes only the tiles found.
 
+## Tiling only the far side
+
+```sh
+npm run eval:far
+npm run eval:far -- --per-size 2 --frames 20
+```
+
+Tiles cost a pass of the model each, as much as the whole frame (a tile is enlarged to the
+model's input), and large frames have many: a 1920×1080 frame is 24 tiles. Cameras look down the
+road, so near vehicles are at the bottom, big enough to find in the whole frame. This looks at
+frames from the cameras with the most history at each frame size, whole and in every tile, and
+works out what only the top rows of tiles would have counted (the merge of just those passes).
+
+Across 22 cameras one evening (3:40–9:40 pm, 220 frames), against all the tiles:
+
+| Tiles | Vehicles | Time |
+|---|---|---|
+| None (whole frame only) | 72% | 12% |
+| Top row | 95% | 50% |
+| Top half of the rows | 96% | 62% |
+| Top two-thirds | 100% | 95% |
+
+The counter uses the top half. Frames 2 rows of tiles high (most of them) lose a little of what
+the bottom row found, up to a fifth of what tiling adds at some cameras; large frames lose almost
+nothing.
+
 ## Occupancy
 
 ```sh

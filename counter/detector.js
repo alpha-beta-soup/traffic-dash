@@ -37,18 +37,27 @@ const duplicate = (a, b) => {
     || (a.pass !== b.pass && shared / Math.min(a.w * a.h, b.w * b.h) > DUPLICATE_INSIDE);
 };
 
-// Overlapping crops of about `size` pixels covering the frame ([] if one would do): small, far-off
-// vehicles shrink to a few pixels when the whole frame is resized for the model, but not in a tile
-export function tiles(width, height, size) {
+// Overlapping crops of about `size` pixels covering the frame ([] if one would do), row by row from
+// the top: small, far-off vehicles shrink to a few pixels when the whole frame is resized for the
+// model, but not in a tile. With `far`, only that share of the rows from the top (rounded up):
+// cameras look down the road, so the top is far off, and near vehicles are big enough without.
+export function tiles(width, height, size, far = 1) {
   const cols = Math.ceil(width / size);
   const rows = Math.ceil(height / size);
   if (!size || cols * rows <= 1) return [];
   const w = Math.min(width, Math.round((width / cols) * (1 + TILE_OVERLAP)));
   const h = Math.min(height, Math.round((height / rows) * (1 + TILE_OVERLAP)));
   const at = (i, n, full, part) => (n > 1 ? Math.round((i * (full - part)) / (n - 1)) : 0);
-  return Array.from({ length: rows * cols }, (_, i) => ({
+  return Array.from({ length: Math.ceil(rows * far) * cols }, (_, i) => ({
     left: at(i % cols, cols, width, w), top: at(Math.floor(i / cols), rows, height, h), width: w, height: h,
   }));
+}
+
+// One box per vehicle, from the boxes of every pass: the most confident of each duplicate
+export function merge(found) {
+  const kept = [];
+  [...found].sort((a, b) => b.score - a.score).forEach(v => kept.some(k => duplicate(k, v)) || kept.push(v));
+  return kept;
 }
 
 // The vehicles among the model's queries, with boxes in the frame's pixels. A region (a tile)
@@ -77,9 +86,10 @@ function vehicles(logits, boxes, region, frame, minScore) {
   return found;
 }
 
-// { detect(image, minScore, { tile }) → { found, ms, width, height, passes } }, for an image as a
-// file path or a Buffer. With `tile` (px), the frame's tiles are looked at too, each a pass of
-// the model like the whole frame (see tiles()). Warmed up on `warmUp` if given, so timings are
+// { detect(image, minScore, { tile, far }) → { found, seen, ms, width, height, passes } }, for an
+// image as a file path or a Buffer. With `tile` (px), the frame's tiles (or the `far` share of
+// their rows) are looked at too, each a pass of the model like the whole frame (see tiles());
+// `seen` is every pass's boxes before merging. Warmed up on `warmUp` if given, so timings are
 // of warm runs. onnxruntime and sharp
 // are loaded here, so the server only needs them when counting is on.
 export async function loadDetector(model = DEFAULT_MODEL, warmUp) {
@@ -106,9 +116,9 @@ export async function loadDetector(model = DEFAULT_MODEL, warmUp) {
 
   if (warmUp) await session.run({ [inputName]: await toTensor(warmUp) });
   return {
-    async detect(image, minScore, { tile = 0 } = {}) {
+    async detect(image, minScore, { tile = 0, far = 1 } = {}) {
       const { width, height } = await sharp(image).metadata();
-      const regions = [{ left: 0, top: 0, width, height }, ...tiles(width, height, tile)];
+      const regions = [{ left: 0, top: 0, width, height }, ...tiles(width, height, tile, far)];
       const found = [];
       let ms = 0;
       for (const [pass, region] of regions.entries()) {
@@ -119,11 +129,8 @@ export async function loadDetector(model = DEFAULT_MODEL, warmUp) {
         vehicles(output[outputName('logits')], output[outputName('box')], region, { width, height }, minScore)
           .forEach(v => found.push({ ...v, pass }));
       }
-      found.sort((a, b) => b.score - a.score);
-      const kept = [];
-      found.forEach(v => kept.some(k => duplicate(k, v)) || kept.push(v));
       return {
-        found: kept, ms: Math.round(ms), width, height, passes: regions.length,
+        found: merge(found), seen: found, ms: Math.round(ms), width, height, passes: regions.length,
       };
     },
   };
