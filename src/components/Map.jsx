@@ -165,7 +165,11 @@ export default function Map({
 
     // Hovering a site shows its cameras' recent footage, and which traffic segments its
     // congestion came from. mousemove rather than mouseenter, to catch moving straight
-    // from one site to a neighbouring one.
+    // from one site to a neighbouring one. A device that can't hover (a phone, a tablet) taps
+    // instead: a tap shows what a hover would, a second tap on a site does what a click does, and a
+    // tap elsewhere on the map closes it.
+    const touch = window.matchMedia?.('(hover: none)').matches;
+    let shownAt = 0; // When a site was last shown: a tap's own (emulated) mousemove shows it just before its click
     const siteIds = e => String(e.features[0].properties.cameraIds).split(',').map(Number);
     // A counting site's dot, drawn over the camera icon it's often beside, takes the pointer
     const onCountDot = e => map.getLayoutProperty('counts', 'visibility') === 'visible'
@@ -176,8 +180,7 @@ export default function Map({
       map.getSource('matched').setData(EMPTY);
       setHovered(null);
     };
-    map.on('click', 'cameras', e => !minimisedRef.current && !onCountDot(e) && onSiteClickRef.current(siteIds(e)));
-    map.on('mousemove', 'cameras', (e) => {
+    const showSite = (e) => {
       if (onCountDot(e)) {
         if (hoverKey.current) leaveSite();
         return;
@@ -185,6 +188,7 @@ export default function Map({
       const key = e.features[0].properties.cameraIds;
       if (minimisedRef.current || hoverKey.current === key) return;
       hoverKey.current = key;
+      shownAt = Date.now();
       map.getCanvas().style.cursor = 'pointer';
       const ids = siteIds(e);
       const segments = ids.flatMap(id => congestionRef.current.get(id)?.segments ?? []);
@@ -196,14 +200,23 @@ export default function Map({
         .filter(camera => ids.includes(camera.id))
         .sort((a, b) => DIRECTION_ORDER.indexOf(a.direction) - DIRECTION_ORDER.indexOf(b.direction));
       setHovered({ cameras: siteCameras, lngLat: e.features[0].geometry.coordinates });
-    });
+    };
+    map.on('mousemove', 'cameras', showSite);
     map.on('mouseleave', 'cameras', leaveSite);
+    map.on('click', 'cameras', (e) => {
+      if (minimisedRef.current || onCountDot(e)) return;
+      if (touch && (hoverKey.current !== e.features[0].properties.cameraIds || Date.now() - shownAt < 500)) {
+        showSite(e); // A first tap: show it
+        return;
+      }
+      onSiteClickRef.current(siteIds(e));
+    });
 
     // Hovering a sign's icon shows the sign itself
-    addSignHover(map, () => minimisedRef.current);
+    addSignHover(map, () => minimisedRef.current, touch);
 
     // Hovering a road event's icon shows its details
-    map.on('mousemove', 'events', (e) => {
+    map.on(touch ? 'click' : 'mousemove', 'events', (e) => {
       if (minimisedRef.current) return;
       const { id } = e.features[0].properties;
       map.getCanvas().style.cursor = 'pointer';
@@ -216,7 +229,7 @@ export default function Map({
 
     // Hovering a counting place (or site, zoomed in) shows how its traffic compares with recent years
     COUNT_DOTS.forEach((id) => {
-      map.on('mousemove', id, (e) => {
+      map.on(touch ? 'click' : 'mousemove', id, (e) => {
         if (minimisedRef.current) return;
         // Read now: the event's features are gone by the time React runs the update
         const { properties: { refs }, geometry: { coordinates: lngLat } } = e.features[0];
@@ -229,12 +242,32 @@ export default function Map({
       });
     });
 
+    // Every popup closed: on Escape, or a tap off them on a device that can't hover
+    const closeAll = () => {
+      leaveSite();
+      hideExpandedSign(map);
+      setHoveredEvent(null);
+      setHoveredCounts(null);
+      setClickedWarnings(null);
+    };
+    const onKey = e => e.key === 'Escape' && closeAll();
+    map.getContainer().addEventListener('keydown', onKey);
+
     // Clicking inside weather warning areas (other than on an icon) shows those warnings; clicking
     // anywhere else closes them. A click rather than a hover: the areas are large.
     map.on('click', (e) => {
       if (minimisedRef.current) return;
       const icons = ['cameras', 'events', 'signs', ...COUNT_DOTS].filter(id => map.getLayer(id));
-      if (map.queryRenderedFeatures(e.point, { layers: icons }).length) return;
+      const onIcon = map.queryRenderedFeatures(e.point, { layers: icons });
+      // A tap off whatever's showing closes it (what's tapped shows instead)
+      if (touch) {
+        const tapped = new Set(onIcon.map(f => f.layer.id));
+        if (!tapped.has('cameras')) leaveSite();
+        if (!tapped.has('signs')) hideExpandedSign(map);
+        if (!tapped.has('events')) setHoveredEvent(null);
+        if (!COUNT_DOTS.some(dots => tapped.has(dots))) setHoveredCounts(null);
+      }
+      if (onIcon.length) return;
       const lngLat = [e.lngLat.lng, e.lngLat.lat];
       const found = map.getLayer('warning-areas') && map.queryRenderedFeatures(e.point, { layers: ['warning-areas'] }).length
         ? warningsAt({ lon: lngLat[0], lat: lngLat[1] }, warningsRef.current)
@@ -248,6 +281,7 @@ export default function Map({
     const refreshWindHourly = setInterval(() => refreshWind(map), WIND_REFRESH);
 
     return () => {
+      map.getContainer().removeEventListener('keydown', onKey); // The element outlives the map
       clearInterval(refresh);
       clearInterval(refreshRain);
       clearInterval(refreshWindHourly);

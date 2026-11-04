@@ -53,9 +53,10 @@ export const hideExpandedSign = (map) => {
   if (map.getLayer('sign-expanded')) map.setFilter('sign-expanded', SHOW_NONE);
 };
 
-// Hovering a sign's icon shows the sign itself (unless `disabled()`)
-export function addSignHover(map, disabled = () => false) {
-  map.on('mousemove', 'signs', (e) => {
+// Hovering a sign's icon shows the sign itself (unless `disabled()`). On a device that can't hover
+// (`touch`), a tap does instead, and a tap elsewhere on the map hides it again (see the map's taps).
+export function addSignHover(map, disabled = () => false, touch = false) {
+  map.on(touch ? 'click' : 'mousemove', 'signs', (e) => {
     if (disabled()) return;
     const { id } = e.features[0].properties;
     // Not when that sign is already showing in full
