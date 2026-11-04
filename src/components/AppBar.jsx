@@ -13,6 +13,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 
 import AboutDialog from './AboutDialog';
+import Arrow from './Arrow';
 import ToggleButton from './ToggleButton';
 import { THEME_SETTINGS } from '../theme';
 import useNow from '../hooks/useNow';
@@ -51,7 +52,7 @@ function PhoneBar({
         <Typography variant="subtitle1" noWrap sx={{ fontWeight: 500, flex: 1, minWidth: 0 }}>
           NZ Traffic Dashboard
         </Typography>
-        {onBack && <Button size="small" variant="outlined" onClick={onBack}>← Dashboard</Button>}
+        {onBack && <Button size="small" variant="outlined" onClick={onBack} startIcon={<Arrow bearing={270} />}>Dashboard</Button>}
         {!onBack && congestionFilter && (
           <TextField
             select
@@ -127,7 +128,7 @@ function WideBar({
           {clockFormat.format(now)}
         </Typography>
         <Box sx={{ ml: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>
-          {onBack && <Button size="small" variant="outlined" onClick={onBack}>← Dashboard</Button>}
+          {onBack && <Button size="small" variant="outlined" onClick={onBack} startIcon={<Arrow bearing={270} />}>Dashboard</Button>}
           {!onBack && congestionFilter && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }} role="group" aria-label="Congestion filter">
               <Typography variant="body2" sx={{ mr: 0.5, whiteSpace: 'nowrap' }}>Congestion</Typography>

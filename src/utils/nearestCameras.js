@@ -17,14 +17,14 @@ const bearing = (a, b) => {
   return (deg(Math.atan2(y, x)) + 360) % 360;
 };
 
-const POINTS = [['N', '↑'], ['NE', '↗'], ['E', '→'], ['SE', '↘'], ['S', '↓'], ['SW', '↙'], ['W', '←'], ['NW', '↖']];
-// The nearest of the eight compass points, with an arrow: { label: 'SW', arrow: '↙' }
+const POINTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+// The nearest of the eight compass points, and its bearing (for an arrow): { label: 'SW', bearing: 225 }
 export const compassPoint = (degrees) => {
-  const [label, arrow] = POINTS[Math.round(degrees / 45) % 8];
-  return { label, arrow };
+  const point = Math.round(degrees / 45) % 8;
+  return { label: POINTS[point], bearing: point * 45 };
 };
 
-// [{ item, km, direction: { label, arrow } }]: the items (anything with lat and lon) within
+// [{ item, km, direction: { label, bearing } }]: the items (anything with lat and lon) within
 // maxKm of `origin`, nearest first
 export function nearestTo(origin, items, { limit = 6, maxKm = 10 } = {}) {
   return items
@@ -35,7 +35,7 @@ export function nearestTo(origin, items, { limit = 6, maxKm = 10 } = {}) {
     .map(found => ({ ...found, direction: compassPoint(bearing(origin, found.item)) }));
 }
 
-// [{ camera, km, direction: { label, arrow } }], nearest first. `exclude`: ids to leave out
+// [{ camera, km, direction: { label, bearing } }], nearest first. `exclude`: ids to leave out
 // (e.g. the camera's own site, listed separately).
 export default function nearestCameras(camera, cameras, { exclude = [], ...options } = {}) {
   const others = cameras.filter(other => other.id !== camera.id && !exclude.includes(other.id));

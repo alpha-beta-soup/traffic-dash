@@ -35,10 +35,10 @@ describe('nearestCameras', () => {
 
 describe('compassPoint', () => {
   it('rounds to the nearest of eight points', () => {
-    assert.deepEqual(compassPoint(0), { label: 'N', arrow: '↑' });
-    assert.deepEqual(compassPoint(22), { label: 'N', arrow: '↑' });
-    assert.deepEqual(compassPoint(23), { label: 'NE', arrow: '↗' });
-    assert.deepEqual(compassPoint(225), { label: 'SW', arrow: '↙' });
-    assert.deepEqual(compassPoint(350), { label: 'N', arrow: '↑' });
+    assert.deepEqual(compassPoint(0), { label: 'N', bearing: 0 });
+    assert.deepEqual(compassPoint(22), { label: 'N', bearing: 0 });
+    assert.deepEqual(compassPoint(23), { label: 'NE', bearing: 45 });
+    assert.deepEqual(compassPoint(225), { label: 'SW', bearing: 225 });
+    assert.deepEqual(compassPoint(350), { label: 'N', bearing: 0 });
   });
 });

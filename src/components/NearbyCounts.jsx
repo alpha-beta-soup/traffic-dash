@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 
+import Arrow from './Arrow';
 import { CountList } from './CountPopup';
 import { fetchJson, nearestTo, placesOf } from '../utils';
 
@@ -33,7 +34,7 @@ export default function NearbyCounts({ camera }) {
     <Paper sx={{ p: 2, mt: 2 }}>
       <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>Traffic counted nearby</Typography>
       <Typography variant="caption" component="p" sx={{ color: 'text.secondary', mb: 1 }}>
-        NZTA&apos;s counting site {metres} m {nearest.direction.arrow} {nearest.direction.label}: vehicles passing it each day,
+        NZTA&apos;s counting site {metres} m <Arrow bearing={nearest.direction.bearing} /> {nearest.direction.label}: vehicles passing it each day,
         days late
       </Typography>
       <CountList sites={here} longTerm />

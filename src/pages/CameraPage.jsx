@@ -7,6 +7,7 @@ import Slider from '@mui/material/Slider';
 import Snackbar from '@mui/material/Snackbar';
 import Typography from '@mui/material/Typography';
 
+import Arrow from '../components/Arrow';
 import { CameraTime } from '../components/Camera';
 import CameraMap from '../components/CameraMap';
 import CameraPlaceholder from '../components/CameraPlaceholder';
@@ -279,12 +280,12 @@ function GettingAround({ camera, cameras }) {
       )}
       {before && (
         <Typography variant="body2">
-          ← Towards {route.start}: <TextLink to={cameraPath(before.id)}>{before.name}</TextLink> · {distance(before)}
+          <Arrow bearing={270} /> Towards {route.start}: <TextLink to={cameraPath(before.id)}>{before.name}</TextLink> · {distance(before)}
         </Typography>
       )}
       {after && (
         <Typography variant="body2">
-          Towards {route.end} →: <TextLink to={cameraPath(after.id)}>{after.name}</TextLink> · {distance(after)}
+          Towards {route.end} <Arrow />: <TextLink to={cameraPath(after.id)}>{after.name}</TextLink> · {distance(after)}
         </Typography>
       )}
       {nearest.length > 0 && (
@@ -295,7 +296,7 @@ function GettingAround({ camera, cameras }) {
               <Box component="li" key={c.id} sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, py: 0.25, fontSize: '0.85rem' }}>
                 <TextLink to={cameraPath(c.id)}>{c.name}</TextLink>
                 <Box component="span" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }} title={`${km.toFixed(1)} km ${direction.label}`}>
-                  {km.toFixed(1)} km {direction.arrow} {direction.label}
+                  {km.toFixed(1)} km <Arrow bearing={direction.bearing} /> {direction.label}
                 </Box>
               </Box>
             ))}
@@ -344,7 +345,7 @@ function SignsNearby({ camera, signs }) {
         <Box key={sign.id} sx={{ '& + &': { mt: 1.5 } }}>
           <LedSign message={sign.message} label={sign.name} />
           <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
-            {sign.name} · {km.toFixed(1)} km {direction.arrow} {direction.label}
+            {sign.name} · {km.toFixed(1)} km <Arrow bearing={direction.bearing} /> {direction.label}
           </Typography>
         </Box>
       ))}
@@ -537,7 +538,7 @@ function CameraView({
             </Paper>
           ))}
           <Box sx={{ mt: 2 }}>
-            <TextLink to="/">← Back to the dashboard</TextLink>
+            <TextLink to="/"><Arrow bearing={270} /> Back to the dashboard</TextLink>
           </Box>
         </Grid>
       </Grid>
