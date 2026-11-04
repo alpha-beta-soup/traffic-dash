@@ -5,9 +5,9 @@ import { alpha } from '@mui/material/styles';
 import Icon from './Icon';
 
 // A button that's an icon (see Icon), named by `label`, for screen readers and as its tooltip.
-// `pressed` (true or false) makes it a toggle, tinted while on.
+// `pressed` (true or false) makes it a toggle, tinted while on; `href`, a link opening a new tab.
 export default function IconAction({
-  icon, label, onClick, pressed, disabled, sx,
+  icon, label, onClick, href, pressed, disabled, sx,
 }) {
   return (
     <Tooltip title={label}>
@@ -16,6 +16,7 @@ export default function IconAction({
         <IconButton
           color="primary"
           onClick={onClick}
+          {...(href && { href, target: '_blank', rel: 'noopener' })}
           disabled={disabled}
           aria-label={label}
           aria-pressed={pressed}

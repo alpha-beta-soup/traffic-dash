@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
 import Paper from '@mui/material/Paper';
 import Slider from '@mui/material/Slider';
@@ -501,7 +500,7 @@ function CameraView({
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1.5, flexWrap: 'wrap' }}>
               <IconAction icon={pinned ? 'pinned' : 'pin'} label="Pin" pressed={pinned} onClick={() => onPin(id)} />
               <IconAction icon="share" label="Share" onClick={share} />
-              <Button size="small" href={imageUrl} target="_blank" rel="noopener">NZTA image</Button>
+              <IconAction icon="external" label="NZTA's own image" href={imageUrl} />
             </Box>
           </Paper>
           {warningsAt(camera, warnings).map(warning => (
