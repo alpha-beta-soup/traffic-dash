@@ -11,12 +11,17 @@ const PANEL_SX = {
 
 // A key's panel on the map (see the legends in Map), which folds to its `title` to clear the
 // map, with a `note` of anything it's set to that changes what's shown (e.g. levels hidden).
-// Folded at first on a phone; remembered by `name`.
-export default function MapLegend({
-  name, title, note, label, children,
-}) {
+// Folded at first on a phone; remembered by `name`, for phones and wider screens apart.
+export default function MapLegend({ name, ...props }) {
   const phone = usePhone();
-  const [open, setOpen] = useStoredSetting(`legend-${name}-open`, !phone);
+  // Keyed, to start again from what's remembered for the other sort of screen
+  return <Panel key={phone} setting={`legend-${name}-open${phone ? '-phone' : ''}`} openAtFirst={!phone} {...props} />;
+}
+
+function Panel({
+  setting, openAtFirst, title, note, label, children,
+}) {
+  const [open, setOpen] = useStoredSetting(setting, openAtFirst);
   return (
     <Box sx={PANEL_SX} aria-label={label}>
       <Box
