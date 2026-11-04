@@ -20,6 +20,7 @@ import VehicleTrend from '../components/VehicleTrend';
 import useLiveImage from '../hooks/useLiveImage';
 import { useLoopFrames } from '../hooks/useLoop';
 import useNow from '../hooks/useNow';
+import { useTouch } from '../hooks/useScreen';
 import useVehicleCounts from '../hooks/useVehicleCounts';
 import usePlayer from '../hooks/usePlayer';
 import useWeather from '../hooks/useWeather';
@@ -58,6 +59,7 @@ const clampAxis = (offset, natural, shown) => (natural <= shown
 // stays put through playback.
 function LargeImage({ src, alt, stale, zoom, onZoom }) {
   const [natural, setNatural] = useState(null);
+  const touch = useTouch();
   const [box, setBox] = useState(null); // The image element's size on screen
   const [dragging, setDragging] = useState(false);
   const img = useRef(null);
@@ -173,7 +175,7 @@ function LargeImage({ src, alt, stale, zoom, onZoom }) {
                 bgcolor: 'rgba(0, 0, 0, 0.6)', color: 'common.white', pointerEvents: 'none',
               }}
             >
-              Full size · drag to look around · click or Esc to zoom out
+              Full size · drag to look around · {touch ? 'tap' : 'click or Esc'} to zoom out
             </Typography>
           </>
         )}
