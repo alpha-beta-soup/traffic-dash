@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import { alpha } from '@mui/material/styles';
 
 import useStoredSetting from '../hooks/useStoredSetting';
-import { usePhone } from '../hooks/useScreen';
+import { usePhone, useTouch } from '../hooks/useScreen';
 
 const PANEL_SX = {
   m: 0, px: 1, py: 0.5, bgcolor: theme => alpha(theme.palette.background.paper, 0.9), borderRadius: 1, boxShadow: 1,
@@ -22,6 +22,7 @@ function Panel({
   setting, openAtFirst, title, note, label, children,
 }) {
   const [open, setOpen] = useStoredSetting(setting, openAtFirst);
+  const touch = useTouch();
   return (
     <Box sx={PANEL_SX} aria-label={label}>
       <Box
@@ -30,7 +31,7 @@ function Panel({
         aria-expanded={open}
         onClick={() => setOpen(on => !on)}
         sx={{
-          display: 'flex', alignItems: 'baseline', gap: 0.5, width: '100%', p: 0, border: 0, bgcolor: 'transparent',
+          display: 'flex', alignItems: 'baseline', gap: 0.5, width: '100%', py: touch ? 0.75 : 0, px: 0, border: 0, bgcolor: 'transparent',
           color: 'inherit', font: 'inherit', textAlign: 'left', cursor: 'pointer',
           '&:focus-visible': { outline: 2, outlineColor: 'primary.main', outlineStyle: 'solid' },
         }}

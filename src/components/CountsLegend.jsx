@@ -4,6 +4,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { useTheme } from '@mui/material/styles';
 
 import MapLegend from './MapLegend';
+import { useTouch } from '../hooks/useScreen';
 import {
   CHANGE_KEY, CHANGE_SIGNS, VEHICLE_CLASSES, changeColour, countedTo,
 } from '../utils';
@@ -18,6 +19,7 @@ export default function CountsLegend({
   sites, hidden, onToggle, vehicles, onVehicles,
 }) {
   const dark = useTheme().palette.mode === 'dark';
+  const touch = useTouch(); // Taller buttons, for fingers
   const counted = countedTo(sites);
   const day = iso => dayFormat.format(new Date(iso));
   // Folded, what it's set to that changes the map, e.g. "Heavy · 2 hidden"
@@ -33,7 +35,12 @@ export default function CountsLegend({
         value={vehicles}
         onChange={(e, value) => value && onVehicles(value)} // Always one chosen
         aria-label="Vehicles compared"
-        sx={{ my: 0.5, '& .MuiToggleButton-root': { py: 0, px: 0.75, fontSize: '0.6875rem', textTransform: 'none', lineHeight: 1.6 } }}
+        sx={{
+          my: 0.5,
+          '& .MuiToggleButton-root': {
+            py: touch ? 0.5 : 0, px: touch ? 1.25 : 0.75, fontSize: '0.6875rem', textTransform: 'none', lineHeight: 1.6,
+          },
+        }}
       >
         {Object.entries(VEHICLE_CLASSES).map(([value, label]) => (
           <ToggleButton key={value} value={value} aria-label={label}>{label.replace(' vehicles', '')}</ToggleButton>
@@ -55,7 +62,7 @@ export default function CountsLegend({
                 aria-pressed={shown}
                 onClick={() => onToggle(level)}
                 sx={{
-                  display: 'flex', alignItems: 'center', gap: 1, width: '100%', p: 0, border: 0, borderRadius: 0.5,
+                  display: 'flex', alignItems: 'center', gap: 1, width: '100%', minHeight: touch ? 28 : 0, p: 0, border: 0, borderRadius: 0.5,
                   bgcolor: 'transparent', color: 'inherit', font: 'inherit', textAlign: 'left', cursor: 'pointer',
                   opacity: shown ? 1 : 0.45, textDecoration: shown ? 'none' : 'line-through',
                   '&:hover': { bgcolor: 'action.hover' },
@@ -75,7 +82,7 @@ export default function CountsLegend({
           );
         })}
       </Box>
-      <Box sx={{ color: 'text.secondary', fontSize: '0.6875rem' }}>Click to show or hide</Box>
+      <Box sx={{ color: 'text.secondary', fontSize: '0.6875rem' }}>{touch ? 'Tap' : 'Click'} to show or hide</Box>
     </MapLegend>
   );
 }

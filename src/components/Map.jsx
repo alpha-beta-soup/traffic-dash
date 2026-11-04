@@ -502,6 +502,8 @@ export default function Map({
       {!minimised && (
         <Box sx={{
           position: 'absolute', left: 10, bottom: 26, zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1,
+          // Clear of the buttons along the top; scrolling, on a short map (a phone's), if the keys are open
+          maxHeight: 'calc(100% - 76px)', overflowY: 'auto', p: '2px', m: '-2px',
         }}
         >
           {layers.counts && trafficCounts.length > 0 && (
