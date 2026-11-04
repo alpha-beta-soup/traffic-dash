@@ -8,6 +8,10 @@ const HOT_TEMP = 30;
 // Strong wind stands out as a warning, readable on either theme
 const warningText = theme => theme.palette.warning[theme.palette.mode === 'dark' ? 'light' : 'dark'];
 
+// The font's sky icons (clouds, sun and so on) sit high beside the text; lowered to level with it.
+// Its wind icons already are.
+const SKY = { verticalAlign: '-0.15em' };
+
 const timeFormat = new Intl.DateTimeFormat('en-NZ', {
   hour: '2-digit',
   minute: '2-digit',
@@ -28,11 +32,11 @@ export default function CameraWeather({ data: wx, alwaysShowWind = false }) {
   return (
     <Typography variant="body2" component="div" sx={{ color: 'text.secondary', mt: 1 }}>
       {wx.weather.map(weather => (
-        <i key={weather.id} className={getWeatherIcon(weather.id, nightTime)} title={weather.description} />
+        <i key={weather.id} className={getWeatherIcon(weather.id, nightTime)} title={weather.description} style={SKY} />
       ))}
       {sun && (
         <>
-          <i style={{ paddingRight: 4 }} className={`wi wi-${sun.type}`} title={sun.type} />
+          <i style={{ ...SKY, paddingRight: 4 }} className={`wi wi-${sun.type}`} title={sun.type} />
           {timeFormat.format(sun.time * 1000)}
         </>
       )}
