@@ -5,3 +5,4 @@ cache
 models
 eval-output
 vehicle-counts
+server-state

@@ -20,6 +20,7 @@ services:
     volumes:
       - cache:/app/cache
       - vehicle-counts:/app/vehicle-counts
+      - server-state:/app/server-state # What's slow to fetch again, kept across restarts
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
       interval: 30s
@@ -64,5 +65,6 @@ services:
 volumes:
   cache:
   vehicle-counts:
+  server-state:
   caddy-data:
   caddy-config:

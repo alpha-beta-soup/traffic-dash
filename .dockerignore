@@ -4,6 +4,7 @@ node_modules
 dist
 cache
 vehicle-counts
+server-state
 models
 eval-output
 docs

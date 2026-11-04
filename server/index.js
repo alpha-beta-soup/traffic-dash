@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 
 import { cacheDir, listFrames } from './cache.js';
+import { memo, stale } from './caching.js';
 import darkStyle from './darkStyle.js';
 import { getImage, showingPlaceholder } from './images.js';
 import { normaliseCamera, normaliseEvent, normaliseSign } from './normalise.js';
@@ -97,40 +98,6 @@ const fetchOk = async (url, options) => {
 };
 const fetchJson = async (url, options) => (await fetchOk(url, options)).json();
 const fetchText = async (url, options) => (await fetchOk(url, options)).text();
-
-// Small in-memory cache so many browser tabs don't hammer the upstream feeds.
-// Caching the promise means concurrent callers share one request.
-const memo = (ttl, fn) => {
-  let promise;
-  let expires = 0;
-  return () => {
-    if (Date.now() > expires) {
-      promise = fn();
-      expires = Date.now() + ttl;
-      promise.catch(() => { expires = 0; }); // Retry on next call rather than caching the failure
-    }
-    return promise;
-  };
-};
-
-// Like memo, but once there's a value it's served as is while a newer one is fetched in the
-// background; a failed refresh keeps the old value (and is tried again next time)
-const stale = (ttl, fn) => {
-  let value;
-  let fetched = 0;
-  let pending = null;
-  const refresh = () => {
-    pending ??= fn()
-      .then((result) => { value = result; fetched = Date.now(); })
-      .finally(() => { pending = null; });
-    return pending;
-  };
-  return async () => {
-    if (value === undefined) await refresh();
-    else if (Date.now() - fetched > ttl) refresh().catch(err => console.error(`Refreshing: ${err.message}`));
-    return value;
-  };
-};
 
 // State highway routes ("journeys"), to place cameras along them. They rarely change, and the
 // feed is large and slow (about 20s), so it gets longer than the usual timeout, starts loading
@@ -234,7 +201,7 @@ app.get('/api/weather-warnings', handle(async (req, res) => {
 // over the usual timeout to add up the counts, so it gets longer.
 const fetchCounts = url => fetchJson(url, { signal: AbortSignal.timeout(60_000) });
 const getCountSites = memo(24 * 60 * 60_000, () => fetchCountSites(fetchCounts));
-const getTrafficCounts = stale(6 * 60 * 60_000, async () => fetchTrafficCounts(fetchCounts, await getCountSites()));
+const getTrafficCounts = stale(6 * 60 * 60_000, async () => fetchTrafficCounts(fetchCounts, await getCountSites()), { stored: 'traffic-counts' });
 
 // Every site, without its daily counts (those come with /api/traffic-counts/:ref)
 app.get('/api/traffic-counts', handle(async (req, res) => {
