@@ -16,7 +16,7 @@ import StaleNotice from './components/StaleNotice';
 import { DEFAULT_LAYERS } from './components/LayersMenu';
 import TrafficMap, { MAP_HEIGHT } from './components/Map';
 import useFeed from './hooks/useFeed';
-import { usePhone } from './hooks/useScreen';
+import { useNoticePlace, usePhone } from './hooks/useScreen';
 import useStoredSetting from './hooks/useStoredSetting';
 import CameraPage from './pages/CameraPage';
 import { matchRoute, navigate, usePath } from './router';
@@ -53,6 +53,7 @@ export default function App() {
   const [minimisedChoice, setMapMinimised] = useState(false);
   // A phone has one column of cameras, so there's nowhere smaller for the map to go
   const phone = usePhone();
+  const noticePlace = useNoticePlace();
   const mapMinimised = minimisedChoice && !phone;
   // On a phone, the camera showing in the row under the map, and one asked for from the map
   const [rowCamera, setRowCamera] = useState(null);
@@ -285,6 +286,7 @@ export default function App() {
         autoHideDuration={4000}
         onClose={(e, reason) => reason !== 'clickaway' && setPinNotice(null)}
         message={pinNotice?.message}
+        anchorOrigin={noticePlace}
         action={(
           // Snackbars are the reverse of the theme (dark on the light one), so its button is too
           <Button size="small" sx={{ color: mode === 'dark' ? 'primary.dark' : 'primary.light' }} onClick={() => { setPinned(pinNotice.before); setPinNotice(null); }}>

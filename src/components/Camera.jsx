@@ -18,6 +18,7 @@ import { VehicleSparkline } from './VehicleTrend';
 import useLiveImage from '../hooks/useLiveImage';
 import useNow from '../hooks/useNow';
 import useOnScreen from '../hooks/useOnScreen';
+import { useNoticePlace } from '../hooks/useScreen';
 import useVehicleCounts from '../hooks/useVehicleCounts';
 import useWeather from '../hooks/useWeather';
 import { Link, cameraPath } from '../router';
@@ -103,6 +104,7 @@ export default function Camera({
   }
   const weather = useWeather(config.weather && seen, lat, lon);
   const [notice, setNotice] = useState(null);
+  const noticePlace = useNoticePlace();
 
   // Reload the frame list whenever a new live frame arrives
   const liveTime = live?.time.getTime();
@@ -190,6 +192,7 @@ export default function Camera({
         autoHideDuration={4750}
         onClose={() => setNotice(null)}
         message={notice}
+        anchorOrigin={noticePlace}
       />
     </Card>
   );
