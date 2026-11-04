@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import ButtonBase from '@mui/material/ButtonBase';
+import Chip from '@mui/material/Chip';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { useTheme } from '@mui/material/styles';
@@ -52,31 +52,32 @@ export default function CountsLegend({
           Counted to {day(counted.half)}{counted.newest !== counted.half && `, some to ${day(counted.newest)}`}
         </Box>
       )}
-      <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none' }}>
+      {/* Material's filter chips: filled while that level's shown, outlined while hidden */}
+      <Box component="ul" sx={{ m: 0, mt: 0.5, p: 0, listStyle: 'none', display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: 300 }}>
         {CHANGE_KEY.map(([level, label]) => {
           const shown = !hidden.includes(level);
           return (
             <li key={level}>
-              <ButtonBase
+              <Chip
+                size="small"
+                variant={shown ? 'filled' : 'outlined'}
                 aria-pressed={shown}
                 onClick={() => onToggle(level)}
+                label={label}
+                icon={(
+                  <Box sx={{
+                    width: 13, height: 13, borderRadius: '3px', flexShrink: 0, bgcolor: changeColour(level, dark), opacity: shown ? 1 : 0.35,
+                    color: CHANGE_SIGNS[level]?.[1], fontSize: 11, fontWeight: 700, lineHeight: '13px', textAlign: 'center',
+                  }}
+                  >
+                    {CHANGE_SIGNS[level]?.[0]}
+                  </Box>
+                )}
                 sx={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 1, width: '100%', minHeight: touch ? 28 : 0,
-                  borderRadius: 0.5, font: 'inherit', textAlign: 'left',
-                  opacity: shown ? 1 : 0.45, textDecoration: shown ? 'none' : 'line-through',
-                  '&:hover': { bgcolor: 'action.hover' },
-                  '&.Mui-focusVisible': { outline: 2, outlineColor: 'primary.main', outlineStyle: 'solid' },
+                  fontSize: '0.75rem', height: touch ? 30 : 24, color: shown ? 'text.primary' : 'text.secondary',
+                  '& .MuiChip-icon': { ml: '6px', mr: '-2px' },
                 }}
-              >
-                <Box sx={{
-                  width: 13, height: 13, mx: '2px', borderRadius: '3px', flexShrink: 0, bgcolor: changeColour(level, dark),
-                  color: CHANGE_SIGNS[level]?.[1], fontSize: 11, fontWeight: 700, lineHeight: '13px', textAlign: 'center',
-                }}
-                >
-                  {CHANGE_SIGNS[level]?.[0]}
-                </Box>
-                {label}
-              </ButtonBase>
+              />
             </li>
           );
         })}
