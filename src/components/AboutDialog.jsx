@@ -4,9 +4,12 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import IconButton from '@mui/material/IconButton';
 import Link from '@mui/material/Link';
+import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 
+import Icon from './Icon';
 import { usePhone } from '../hooks/useScreen';
 import { homepage, version } from '../../package.json';
 
@@ -33,7 +36,13 @@ export default function AboutDialog({ open, onClose }) {
   const phone = usePhone();
   return (
     <Dialog open={open} onClose={onClose} fullScreen={phone} maxWidth="sm" scroll="paper" aria-labelledby="about-title">
-      <DialogTitle id="about-title">About the NZ Traffic Dashboard</DialogTitle>
+      {/* Full screen on a phone, Material's way: a bar along the top, closed by its ✕ */}
+      {phone ? (
+        <Toolbar sx={{ gap: 1, pl: 1 }}>
+          <IconButton edge="start" aria-label="Close" onClick={onClose}><Icon name="close" /></IconButton>
+          <Typography variant="h6" component="h2" id="about-title" noWrap>About</Typography>
+        </Toolbar>
+      ) : <DialogTitle id="about-title">About the NZ Traffic Dashboard</DialogTitle>}
       <DialogContent dividers sx={{ typography: 'body2' }}>
         <Typography variant="body2">
           New Zealand’s traffic cameras, message signs, road events and weather warnings on one map, with how
@@ -81,7 +90,7 @@ export default function AboutDialog({ open, onClose }) {
         <Typography variant="body2" color="text.secondary">
           Version {version} · <Out href={homepage}>Source code</Out> (GPL-2.0)
         </Typography>
-        <Button onClick={onClose}>Close</Button>
+        {!phone && <Button onClick={onClose}>Close</Button>}
       </DialogActions>
     </Dialog>
   );
