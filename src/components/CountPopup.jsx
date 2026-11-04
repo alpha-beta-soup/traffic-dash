@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Box from '@mui/material/Box';
+import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
 
@@ -145,7 +146,7 @@ function useHistory(ref, enabled) {
   useEffect(() => {
     if (!enabled) return undefined;
     let current = true;
-    fetchHistory(ref).then(found => current && setMonths(found)).catch(() => {});
+    fetchHistory(ref).then(found => current && setMonths(found ?? [])).catch(() => current && setMonths([]));
     return () => { current = false; };
   }, [ref, enabled]);
   return months;
@@ -156,7 +157,7 @@ function useDays(site) {
   const [days, setDays] = useState(null);
   useEffect(() => {
     let current = true;
-    fetchDetails(site).then(full => current && setDays(full.days)).catch(() => {});
+    fetchDetails(site).then(full => current && setDays(full.days ?? [])).catch(() => current && setDays([]));
     return () => { current = false; };
   }, [site]);
   return days;
@@ -196,17 +197,19 @@ function CountRow({
       <Typography variant="caption" component="p" sx={{ ...TIGHT, color: 'text.secondary', ml: 2, mb: 0.25 }}>
         {details.join(' · ')}
       </Typography>
-      {/* Until they've loaded, the charts' space is kept, in their proportions (they scale with
-          the popup's width), so nothing moves when they arrive */}
-      {days ? <DailyChart days={days} height={chartHeight} vehicles={vehicles} /> : <Box sx={{ aspectRatio: `${W} / ${chartHeight}` }} />}
-      {history && (
+      {/* Until they've loaded, skeletons keep the charts' space, in their proportions (they scale
+          with the popup's width), so nothing moves when they arrive */}
+      {/* (Fetched, but nothing to show, or failed: none) */}
+      {days === null && <Skeleton variant="rectangular" sx={{ aspectRatio: `${W} / ${chartHeight}`, height: 'auto' }} />}
+      {days?.length > 0 && <DailyChart days={days} height={chartHeight} vehicles={vehicles} />}
+      {history && (months === null || months.length > 1) && (
         <>
           <Typography variant="caption" sx={{ ...TIGHT, color: 'text.secondary', display: 'block', mt: 0.5 }}>
-            {months?.length > 1 ? `Each month since ${months[0].month.slice(0, 4)}` : '\u00a0'}
+            {months ? `Each month since ${months[0].month.slice(0, 4)}` : <Skeleton width="40%" />}
           </Typography>
-          {months?.length > 1
+          {months
             ? <LongTermChart months={months} vehicles={vehicles} />
-            : <Box sx={{ aspectRatio: `${W} / ${LONG_H + 11}` }} />}
+            : <Skeleton variant="rectangular" sx={{ aspectRatio: `${W} / ${LONG_H + 11}`, height: 'auto' }} />}
         </>
       )}
     </Box>
