@@ -103,7 +103,8 @@ export default function Map({
       ...(expandedView.current
         ? (({ center, zoom, bearing, pitch }) => ({ center, zoom, bearing, pitch }))(expandedView.current)
         : initialViewRef.current ?? { center: DEFAULT_LOCATION, zoom: DEFAULT_ZOOM }),
-      attributionControl: { compact: false, customAttribution: NZTA_ATTRIBUTION }, // Hidden while minimised
+      // Folding to an ⓘ button on narrow maps (e.g. phones) once the map's moved; hidden while minimised
+      attributionControl: { customAttribution: NZTA_ATTRIBUTION },
     });
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl(), 'top-right');

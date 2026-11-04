@@ -43,4 +43,5 @@ export const mapControlsDark = {
   },
   '& .maplibregl-ctrl-attrib': { bgcolor: theme => alpha(theme.palette.background.paper, 0.8), color: 'text.secondary' },
   '& .maplibregl-ctrl-attrib a': { color: 'text.secondary' },
+  '& .maplibregl-ctrl-attrib-button': { filter: 'invert(1)' }, // The ⓘ on a narrow map
 };
