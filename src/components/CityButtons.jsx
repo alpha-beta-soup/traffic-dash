@@ -7,12 +7,13 @@ import Tooltip from '@mui/material/Tooltip';
 
 import { useNarrow, usePhone } from '../hooks/useScreen';
 
-// The cities, by their airports' codes for when there's little room
+// The cities, north to south, by their airports' codes for when there's little room
 export const CITIES = {
   Auckland: { code: 'AKL', lngLat: [174.7633, -36.8484] },
   Hamilton: { code: 'HLZ', lngLat: [175.2793, -37.7870] },
   Wellington: { code: 'WLG', lngLat: [174.7762, -41.2865] },
   Christchurch: { code: 'CHC', lngLat: [172.6362, -43.5321] },
+  Queenstown: { code: 'ZQN', lngLat: [168.6626, -45.0312] },
   Dunedin: { code: 'DUD', lngLat: [170.5028, -45.8788] },
 };
 
