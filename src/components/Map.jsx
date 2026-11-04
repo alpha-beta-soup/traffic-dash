@@ -101,7 +101,7 @@ export default function Map({
       ...(expandedView.current
         ? (({ center, zoom, bearing, pitch }) => ({ center, zoom, bearing, pitch }))(expandedView.current)
         : initialViewRef.current ?? { center: DEFAULT_LOCATION, zoom: DEFAULT_ZOOM }),
-      // Folding to an ⓘ button on narrow maps (e.g. phones) once the map's moved; hidden while minimised
+      // Folded to an ⓘ button on narrow maps (e.g. phones); hidden while minimised
       attributionControl: { customAttribution: NZTA_ATTRIBUTION },
     });
     mapRef.current = map;
@@ -155,6 +155,8 @@ export default function Map({
     };
     snapEventsRef.current = () => { snapNeeded = true; if (map.loaded()) snapEventRoads(); };
     map.on('load', () => {
+      // Narrow (folded to the ⓘ), the credits start folded too, rather than over the map's keys
+      map.getContainer().querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
       addLayers(map, traffic, dark, weather);
       setLoaded(true);
       reportBounds();
