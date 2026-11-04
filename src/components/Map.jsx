@@ -51,7 +51,7 @@ const toGeojson = items => ({
 export default function Map({
   styleUrl, dark, traffic, weather, cameras, signs, events, warnings, trafficCounts, centre, congestion, isShown, minimised,
   layers, initialView, onBoundsChange, onSiteClick, onCongestion, onToggleMinimised, onLayersChange, onViewChange,
-  countVehicles: vehicles, onCountVehicles, hiddenLevels, onHiddenLevels,
+  countVehicles: vehicles, onCountVehicles, hiddenLevels, onHiddenLevels, selectedCamera, onSiteTap,
 }) {
   const container = useRef(null);
   const mapRef = useRef(null);
@@ -60,6 +60,7 @@ export default function Map({
   const onViewChangeRef = useLatest(onViewChange);
   const initialViewRef = useLatest(initialView);
   const onSiteClickRef = useLatest(onSiteClick);
+  const onSiteTapRef = useLatest(onSiteTap);
   const onCongestionRef = useLatest(onCongestion);
   const camerasRef = useLatest(cameras);
   const eventsRef = useLatest(events);
@@ -172,7 +173,8 @@ export default function Map({
     // congestion came from. mousemove rather than mouseenter, to catch moving straight
     // from one site to a neighbouring one. A device that can't hover (a phone, a tablet) taps
     // instead: a tap shows what a hover would, a second tap on a site does what a click does, and a
-    // tap elsewhere on the map closes it.
+    // tap elsewhere on the map closes it. On a phone (`onSiteTap`), a first tap goes to the site's
+    // cameras in the row under the map instead, which the map then marks (selectedCamera).
     let shownAt = 0; // When a site was last shown: a tap's own (emulated) mousemove shows it just before its click
     const siteIds = e => String(e.features[0].properties.cameraIds).split(',').map(Number);
     // A counting site's dot, drawn over the camera icon it's often beside, takes the pointer
@@ -195,6 +197,10 @@ export default function Map({
       shownAt = Date.now();
       map.getCanvas().style.cursor = 'pointer';
       const ids = siteIds(e);
+      if (onSiteTapRef.current) {
+        onSiteTapRef.current(ids);
+        return;
+      }
       const segments = ids.flatMap(id => congestionRef.current.get(id)?.segments ?? []);
       map.getSource('matched').setData({
         type: 'FeatureCollection',
@@ -295,7 +301,7 @@ export default function Map({
     };
   }, [
     styleUrl, dark, traffic, weather, onBoundsChangeRef, onViewChangeRef, onSiteClickRef, onCongestionRef,
-    camerasRef, eventsRef, warningsRef, congestionRef, minimisedRef, initialViewRef,
+    onSiteTapRef, camerasRef, eventsRef, warningsRef, congestionRef, minimisedRef, initialViewRef,
   ]);
 
   // Minimised: show the same area in the smaller box, and stop all interaction.
@@ -326,6 +332,19 @@ export default function Map({
       reportBoundsRef.current(); // Expanded a map that started minimised (e.g. back from a camera page)
     }
   }, [minimised]);
+
+  // The camera a phone's showing, ringed, with the traffic its congestion was judged by
+  useEffect(() => {
+    if (!loaded) return;
+    const segments = selectedCamera ? congestion.get(selectedCamera.id)?.segments ?? [] : [];
+    mapRef.current.getSource('selected')?.setData({
+      type: 'FeatureCollection',
+      features: selectedCamera ? [
+        { type: 'Feature', geometry: { type: 'Point', coordinates: [selectedCamera.lon, selectedCamera.lat] }, properties: {} },
+        ...segments.map(coordinates => ({ type: 'Feature', geometry: { type: 'LineString', coordinates }, properties: {} })),
+      ] : [],
+    });
+  }, [loaded, selectedCamera, congestion]);
 
   // Optional layers. The congestion lines are hidden by making them transparent, not with
   // 'visibility': that clears the source's tiles until the map next moves, and the card

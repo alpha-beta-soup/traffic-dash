@@ -7,6 +7,7 @@ import { ThemeProvider } from '@mui/material/styles';
 
 import AppBar from './components/AppBar';
 import Camera from './components/Camera';
+import CameraRow from './components/CameraRow';
 import ErrorBoundary from './components/ErrorBoundary';
 import ErrorSnackbar from './components/ErrorSnackbar';
 import StaleNotice from './components/StaleNotice';
@@ -51,6 +52,9 @@ export default function App() {
   // A phone has one column of cameras, so there's nowhere smaller for the map to go
   const phone = usePhone();
   const mapMinimised = minimisedChoice && !phone;
+  // On a phone, the camera showing in the row under the map, and one asked for from the map
+  const [rowCamera, setRowCamera] = useState(null);
+  const [rowTarget, setRowTarget] = useState(null);
   // Where the dashboard map was, so it comes back there (from a camera page, or on reload)
   const [mapView, setMapView] = useStoredSetting('map-view', null);
   // The traffic counts compare all vehicles, or heavy or light ones; and the levels of change
@@ -157,8 +161,28 @@ export default function App() {
   // Working cameras first, offline ones after
   const isWorking = camera => !camera.offline && !camera.underMaintenance && !camera.unavailable;
   const working = unpinnedInView.filter(isWorking);
+  // On a phone, swiped through one at a time: nearest the map's centre first
+  if (phone && bounds) {
+    const { lng, lat } = bounds.getCenter();
+    const away = ({ lon, lat: y }) => ((lon - lng) * Math.cos((lat * Math.PI) / 180)) ** 2 + (y - lat) ** 2;
+    working.sort((a, b) => away(a) - away(b));
+  }
   const notWorking = unpinnedInView.filter(camera => !isWorking(camera));
   const shown = [...pinnedCameras, ...working, ...notWorking];
+
+  const card = camera => (
+    <Camera
+      camera={camera}
+      config={config ?? {}}
+      congestion={congestion.get(camera.id)}
+      nearbyEvents={nearbyEvents(camera, events)}
+      warnings={warningsAt(camera, warnings)}
+      loopAll={loopAll}
+      pinned={pinned.includes(camera.id)}
+      onPin={togglePin}
+      onFocus={focus}
+    />
+  );
 
   return (
     <ThemeProvider theme={theme}>
@@ -223,25 +247,17 @@ export default function App() {
                     onCountVehicles={setCountVehicles}
                     hiddenLevels={hiddenLevels}
                     onHiddenLevels={setHiddenLevels}
+                    selectedCamera={phone ? rowCamera : null}
+                    onSiteTap={phone ? ids => setRowTarget({ id: shown.find(camera => ids.includes(camera.id))?.id }) : undefined}
                   />
                 </ErrorBoundary>
               )}
             </Grid>
-            {shown.map(camera => (
-              <Grid key={camera.id} size={CARD_SIZE}>
-                <Camera
-                  camera={camera}
-                  config={config ?? {}}
-                  congestion={congestion.get(camera.id)}
-                  nearbyEvents={nearbyEvents(camera, events)}
-                  warnings={warningsAt(camera, warnings)}
-                  loopAll={loopAll}
-                  pinned={pinned.includes(camera.id)}
-                  onPin={togglePin}
-                  onFocus={focus}
-                />
+            {phone ? (
+              <Grid size={12}>
+                <CameraRow cameras={shown} target={rowTarget} onCurrent={setRowCamera} renderCard={card} />
               </Grid>
-            ))}
+            ) : shown.map(camera => <Grid key={camera.id} size={CARD_SIZE}>{card(camera)}</Grid>)}
           </Grid>
         </Box>
       )}
