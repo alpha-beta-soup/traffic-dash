@@ -12,11 +12,12 @@ import TextField from '@mui/material/TextField';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 
+import AboutDialog from './AboutDialog';
 import ToggleButton from './ToggleButton';
 import { THEME_SETTINGS } from '../theme';
 import useNow from '../hooks/useNow';
 import { usePhone } from '../hooks/useScreen';
-import { homepage, version } from '../../package.json';
+import { version } from '../../package.json';
 
 const clockFormat = new Intl.DateTimeFormat('en-NZ', {
   weekday: 'long',
@@ -39,7 +40,7 @@ const THEME_LABELS = { auto: 'Auto', light: 'Light', dark: 'Dark' };
 
 // On a phone, one line: the title, the congestion filter as a dropdown, and the rest in a menu
 function PhoneBar({
-  loopAll, onToggleLoopAll, congestionFilter, onCongestionFilter, themeSetting, mode, onThemeSetting, onBack,
+  loopAll, onToggleLoopAll, congestionFilter, onCongestionFilter, themeSetting, mode, onThemeSetting, onBack, onAbout,
 }) {
   const [anchor, setAnchor] = useState(null);
   const close = () => setAnchor(null);
@@ -91,9 +92,7 @@ function PhoneBar({
             </MenuItem>
           ))}
           <Divider />
-          <MenuItem component="a" href={homepage} target="_blank" rel="noopener" onClick={close}>
-            Source code (v{version})
-          </MenuItem>
+          <MenuItem onClick={() => { close(); onAbout(); }}>About (v{version})</MenuItem>
         </Menu>
       </Toolbar>
     </MuiAppBar>
@@ -104,11 +103,18 @@ function PhoneBar({
 // dashboard, which has a way back instead of the dashboard's controls
 export default function AppBar(props) {
   const phone = usePhone();
-  return phone ? <PhoneBar {...props} /> : <WideBar {...props} />;
+  const [about, setAbout] = useState(false);
+  const Bar = phone ? PhoneBar : WideBar;
+  return (
+    <>
+      <Bar {...props} onAbout={() => setAbout(true)} />
+      <AboutDialog open={about} onClose={() => setAbout(false)} />
+    </>
+  );
 }
 
 function WideBar({
-  loopAll, onToggleLoopAll, congestionFilter, onCongestionFilter, themeSetting, mode, onThemeSetting, onBack,
+  loopAll, onToggleLoopAll, congestionFilter, onCongestionFilter, themeSetting, mode, onThemeSetting, onBack, onAbout,
 }) {
   const now = useNow(1000);
   return (
@@ -142,7 +148,7 @@ function WideBar({
           >
             {themeSetting === 'auto' ? `Auto (${mode})` : themeSetting}
           </Button>
-          <Link variant="subtitle1" color="secondary" underline="hover" href={homepage} target="_blank" rel="noopener" title="Source code">
+          <Link component="button" variant="subtitle1" color="secondary" underline="hover" onClick={onAbout} title="About, sources and source code">
             v{version}
           </Link>
         </Box>
