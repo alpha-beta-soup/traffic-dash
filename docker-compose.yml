@@ -32,8 +32,12 @@ services:
     <<: *app
     command: ["node", "counter/index.js"]
     cpus: 2
+    # A backstop: whatever happens, it can't take more than this from the machine
+    mem_limit: 3g
     environment:
       VEHICLE_THREADS: 2 # To match its CPUs
+      # About twice what it uses: past it, it saves its counts and exits, and Docker starts it afresh
+      VEHICLE_MAX_MEMORY_MB: 2048
     volumes:
       - cache:/app/cache:ro
       - vehicle-counts:/app/vehicle-counts

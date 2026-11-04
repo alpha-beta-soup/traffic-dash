@@ -36,6 +36,7 @@ All keys are optional. Without them you still get cameras and variable message s
 | `VEHICLE_MODEL` | The vehicle detector: `medium` (more accurate), `small` (cheaper), or the path to another ONNX detector; vehicle counting is on when its file is in `models/`. See [scripts/vehicle-eval](scripts/vehicle-eval/readme.md) for where to get them. Counts from different models don't compare, so changing it puts a step in the charts | `medium` |
 | `VEHICLE_COUNTS_DAYS` | Vehicle counts are kept this long, in `vehicle-counts/` | 7 |
 | `VEHICLE_THREADS` | Threads the vehicle counter's model runs on; match it to the CPU the counter is given | one per core |
+| `VEHICLE_MAX_MEMORY_MB` | Past this much memory, the vehicle counter saves its counts and exits, to be started afresh (Docker restarts it; Compose sets 2048). It logs its memory hourly either way | off |
 | `TRUST_PROXY` | Behind a reverse proxy, how many hops of `X-Forwarded-For` to trust, so clients are rate limited by their own address | off |
 | `DOMAIN` | For deploying with Docker Compose: the domain Caddy gets an HTTPS certificate for | `localhost` |
 | `VITE_MIN_REFRESH` / `VITE_MAX_REFRESH` | Each camera refreshes at a random interval in this range (ms) | 10000 / 25000 |
