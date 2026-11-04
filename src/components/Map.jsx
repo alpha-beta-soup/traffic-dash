@@ -502,6 +502,7 @@ export default function Map({
           lngLat={clickedWarnings.lngLat}
           // Clickable, for its links
           sx={{ p: 1.5, width: 320, pointerEvents: 'auto', borderTop: `4px solid ${warningColour(clickedWarnings.warnings[0])}` }}
+          onClose={() => setClickedWarnings(null)}
         >
           {clickedWarnings.warnings.map((warning, i) => (
             <Box key={warning.id} sx={{ mt: i ? 2 : 0 }}><WarningDetails warning={warning} /></Box>
@@ -514,10 +515,11 @@ export default function Map({
           lngLat={hoveredCounts.lngLat}
           sites={hoveredCounts.refs.split(',').map(ref => trafficCounts.find(site => site.ref === ref)).filter(Boolean)}
           vehicles={vehicles}
+          onClose={() => setHoveredCounts(null)}
         />
       )}
       {hoveredEvent && !minimised && mapRef.current && (
-        <EventPopup map={mapRef.current} event={hoveredEvent} lngLat={[hoveredEvent.lon, hoveredEvent.lat]} />
+        <EventPopup map={mapRef.current} event={hoveredEvent} lngLat={[hoveredEvent.lon, hoveredEvent.lat]} onClose={() => setHoveredEvent(null)} />
       )}
       <Snackbar
         open={!!notice}

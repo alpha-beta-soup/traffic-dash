@@ -269,10 +269,10 @@ export function CountList({ sites, vehicles = 'all', longTerm = sites.length <= 
 
 // The counting sites at a hovered place (often both directions of a road, or an interchange's ramps)
 export default function CountPopup({
-  map, lngLat, sites, vehicles,
+  map, lngLat, sites, vehicles, onClose,
 }) {
   return (
-    <MapPopup map={map} lngLat={lngLat} sx={{ p: 1.25, width: 340 }}>
+    <MapPopup map={map} lngLat={lngLat} onClose={onClose} sx={{ p: 1.25, width: 340 }}>
       <CountList sites={sites} vehicles={vehicles} />
     </MapPopup>
   );

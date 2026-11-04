@@ -1,6 +1,10 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import Box from '@mui/material/Box';
+import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
+
+import { usePhone } from '../hooks/useScreen';
 
 const MARGIN = 6; // px kept clear of the window's edges
 const OFFSET = 18; // px between the hovered icon and the popup
@@ -10,7 +14,13 @@ const OFFSET = 18; // px between the hovered icon and the popup
 // cut off: above the icon if it fits, otherwise on whichever side has more room. It measures
 // itself before showing, so content can be any size. pointer-events: none, so it never steals
 // the hover from the map.
-export default function MapPopup({ map, lngLat, sx, children }) {
+//
+// On a phone, where a popup would cover most of the map, it's a sheet across the bottom of the
+// screen instead, full width, scrolling if it's tall, with a button to close it (`onClose`).
+export default function MapPopup({
+  map, lngLat, sx, onClose, children,
+}) {
+  const phone = usePhone();
   const ref = useRef(null);
   const [size, setSize] = useState(null);
   // Measured before it first shows, and again whenever its content changes size
@@ -25,6 +35,41 @@ export default function MapPopup({ map, lngLat, sx, children }) {
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
+  if (phone) {
+    return createPortal(
+      <Paper
+        ref={ref}
+        elevation={8}
+        role="dialog"
+        sx={{
+          ...sx,
+          position: 'fixed',
+          zIndex: 1300,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: 'auto',
+          maxHeight: '60svh',
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          borderRadius: '12px 12px 0 0',
+          pb: 'max(12px, env(safe-area-inset-bottom))',
+          '@keyframes rise': { from: { transform: 'translateY(100%)' }, to: { transform: 'none' } },
+          animation: 'rise 180ms ease-out',
+        }}
+      >
+        {onClose && (
+          <Box sx={{ position: 'sticky', top: 0, height: 0, display: 'flex', justifyContent: 'flex-end', zIndex: 1 }}>
+            <IconButton aria-label="Close" onClick={onClose} sx={{ mt: -0.5, mr: -0.5, width: 40, height: 40, fontSize: 20, bgcolor: 'background.paper', '&:hover': { bgcolor: 'background.paper' } }}>
+              ✕
+            </IconButton>
+          </Box>
+        )}
+        {children}
+      </Paper>,
+      document.body,
+    );
+  }
   let position = { left: 0, top: 0, visibility: 'hidden' };
   if (size) {
     const box = map.getContainer().getBoundingClientRect();
