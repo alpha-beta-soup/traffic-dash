@@ -22,7 +22,7 @@ import {
   addSignHover, hideExpandedSign, setSigns, startSignPaging,
 } from '../map/signs';
 import maplibregl, { mapControls, mapControlsDark } from '../map/maplibre';
-import { TRAFFIC_REFRESH } from '../consts';
+import { TOUCH as TOUCH_QUERY, TRAFFIC_REFRESH } from '../consts';
 import {
   SAME_SPOT, cameraCongestion, countFeatures, filterCamerasByBbox, groupCameraSites, snapEvents, warningColour, warningFeatures, warningsAt,
 } from '../utils';
@@ -30,8 +30,7 @@ import { lines } from '../utils/geometry';
 
 const DEFAULT_LOCATION = [174.787, -41.272]; // Wellington
 const DEFAULT_ZOOM = 11;
-// A device that can't hover: a phone, a tablet
-const TOUCH = window.matchMedia?.('(hover: none)').matches;
+const TOUCH = window.matchMedia?.(TOUCH_QUERY).matches;
 // Required by the NZTA terms of use: https://www.journeys.nzta.govt.nz/about-this-site/terms-of-use
 const NZTA_ATTRIBUTION = 'Cameras &amp; signs: <a href="https://www.journeys.nzta.govt.nz/" target="_blank" rel="noopener">Waka Kotahi NZ Transport Agency</a>';
 // Every way of moving the map; all off while it's minimised

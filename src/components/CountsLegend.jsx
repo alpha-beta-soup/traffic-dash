@@ -3,7 +3,7 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { useTheme } from '@mui/material/styles';
 
-import { LEGEND_SX } from './CongestionLegend';
+import MapLegend from './MapLegend';
 import {
   CHANGE_KEY, CHANGE_SIGNS, VEHICLE_CLASSES, changeColour, countedTo,
 } from '../utils';
@@ -20,9 +20,13 @@ export default function CountsLegend({
   const dark = useTheme().palette.mode === 'dark';
   const counted = countedTo(sites);
   const day = iso => dayFormat.format(new Date(iso));
+  // Folded, what it's set to that changes the map, e.g. "Heavy · 2 hidden"
+  const note = [
+    vehicles !== 'all' && VEHICLE_CLASSES[vehicles].replace(' vehicles', ''),
+    hidden.length > 0 && `${hidden.length} hidden`,
+  ].filter(Boolean).join(' · ');
   return (
-    <Box sx={LEGEND_SX} aria-label="Traffic counts key">
-      <Box sx={{ fontWeight: 500 }}>Traffic against recent years</Box>
+    <MapLegend name="counts" title="Traffic against recent years" note={note} label="Traffic counts key">
       <ToggleButtonGroup
         exclusive
         size="small"
@@ -72,6 +76,6 @@ export default function CountsLegend({
         })}
       </Box>
       <Box sx={{ color: 'text.secondary', fontSize: '0.6875rem' }}>Click to show or hide</Box>
-    </Box>
+    </MapLegend>
   );
 }

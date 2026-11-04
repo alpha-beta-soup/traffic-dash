@@ -13,10 +13,11 @@ import StaleNotice from './components/StaleNotice';
 import { DEFAULT_LAYERS } from './components/LayersMenu';
 import TrafficMap from './components/Map';
 import useFeed from './hooks/useFeed';
+import { usePhone } from './hooks/useScreen';
 import useStoredSetting from './hooks/useStoredSetting';
 import CameraPage from './pages/CameraPage';
 import { matchRoute, navigate, usePath } from './router';
-import { PHONE, congestionEnum } from './consts';
+import { congestionEnum } from './consts';
 import {
   fetchJson, filterCamerasByBbox, mapLinkQuery, nearbyEvents, warningsAt,
 } from './utils';
@@ -48,7 +49,7 @@ export default function App() {
   const [centre, setCentre] = useState(null);
   const [minimisedChoice, setMapMinimised] = useState(false);
   // A phone has one column of cameras, so there's nowhere smaller for the map to go
-  const phone = useMediaQuery(PHONE);
+  const phone = usePhone();
   const mapMinimised = minimisedChoice && !phone;
   // Where the dashboard map was, so it comes back there (from a camera page, or on reload)
   const [mapView, setMapView] = useStoredSetting('map-view', null);

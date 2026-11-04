@@ -17,6 +17,8 @@ export const LIGHTBLACK = '#485d6f';
 export const PHONE = '(max-width: 599.95px)';
 // Narrower than its md breakpoint: phones, and tablets held upright
 export const NARROW = '(max-width: 899.95px)';
+// A device that can't hover: a phone, a tablet
+export const TOUCH = '(hover: none)';
 export const TRAFFIC_REFRESH = 5 * 60_000; // ms; Mapbox updates traffic roughly this often
 
 // Randomised per camera, so they don't all hit the server at once

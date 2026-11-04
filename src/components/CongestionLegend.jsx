@@ -1,21 +1,14 @@
 import Box from '@mui/material/Box';
-import { alpha } from '@mui/material/styles';
 
+import MapLegend from './MapLegend';
 import { congestionEnum } from '../consts';
 import { BASE_WIDTH } from '../map/layers';
-
-// A key's panel on the map (see the legends in Map)
-export const LEGEND_SX = {
-  m: 0, px: 1, py: 0.5, bgcolor: theme => alpha(theme.palette.background.paper, 0.9), borderRadius: 1, boxShadow: 1,
-  fontSize: '0.75rem', color: 'text.primary',
-};
 
 // Names each congestion level, drawn as it appears on the map (at the zoom-12 base width)
 export default function CongestionLegend() {
   const levels = Object.values(congestionEnum).sort((a, b) => b.value - a.value); // Low first
   return (
-    <Box sx={LEGEND_SX} aria-label="Congestion key">
-      <Box sx={{ fontWeight: 500 }}>Congestion now</Box>
+    <MapLegend name="congestion" title="Congestion now" label="Congestion key">
       <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none' }}>
         {levels.map(({ description, color, width }) => {
           const strokeWidth = BASE_WIDTH[12] * width;
@@ -37,6 +30,6 @@ export default function CongestionLegend() {
           );
         })}
       </Box>
-    </Box>
+    </MapLegend>
   );
 }

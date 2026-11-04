@@ -4,9 +4,8 @@ import Button from '@mui/material/Button';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Tooltip from '@mui/material/Tooltip';
-import useMediaQuery from '@mui/material/useMediaQuery';
 
-import { NARROW, PHONE } from '../consts';
+import { useNarrow, usePhone } from '../hooks/useScreen';
 
 // The cities, by their airports' codes for when there's little room
 export const CITIES = {
@@ -22,8 +21,8 @@ const BUTTON_SX = { opacity: 0.85 };
 // Buttons to go to each city (`onGo([lon, lat])`): named in full on a wide screen, by airport
 // code on a narrower one, and in a menu on a phone
 export default function CityButtons({ onGo }) {
-  const phone = useMediaQuery(PHONE);
-  const narrow = useMediaQuery(NARROW);
+  const phone = usePhone();
+  const narrow = useNarrow();
   const [anchor, setAnchor] = useState(null);
   if (phone) {
     return (
