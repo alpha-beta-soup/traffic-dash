@@ -337,8 +337,10 @@ export const addLayers = (map, traffic, dark, weather = false) => {
       'text-optional': true,
     },
     paint: {
-      'icon-opacity': ['case', ['get', 'dim'], 0.3, 1],
-      'text-color': ['case', ['get', 'dim'], labels.dimmed, labels.text],
+      // (Unset, as on the camera page's map, isn't dimmed: a missing value would fail the
+      // expression, and the text fall back to MapLibre's black, unreadable on the dark map)
+      'icon-opacity': ['case', ['to-boolean', ['get', 'dim']], 0.3, 1],
+      'text-color': ['case', ['to-boolean', ['get', 'dim']], labels.dimmed, labels.text],
       'text-halo-color': labels.halo,
       'text-halo-width': 1.6,
     },
