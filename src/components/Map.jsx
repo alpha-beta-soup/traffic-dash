@@ -344,16 +344,21 @@ export default function Map({
       features: segments.map(coordinates => ({ type: 'Feature', geometry: { type: 'LineString', coordinates }, properties: {} })),
     });
   }, [loaded, selectedCamera, congestion]);
-  // …marked with a pulse (whether or not the cameras are shown): an element over the map, animated
-  // by CSS, so the map needn't redraw for it
+  // …marked with a pulse (whether or not the cameras are shown) in its congestion's colour, as its
+  // card's border is: an element over the map, animated by CSS, so the map needn't redraw for it
   const selectedAt = selectedCamera && [selectedCamera.lon, selectedCamera.lat].join();
+  const pulse = useRef(null);
   useEffect(() => {
     if (!loaded || !selectedAt) return undefined;
-    const element = document.createElement('div');
-    element.className = 'camera-pulse';
-    const marker = new maplibregl.Marker({ element }).setLngLat(selectedAt.split(',').map(Number)).addTo(mapRef.current);
+    pulse.current = document.createElement('div');
+    pulse.current.className = 'camera-pulse';
+    const marker = new maplibregl.Marker({ element: pulse.current }).setLngLat(selectedAt.split(',').map(Number)).addTo(mapRef.current);
     return () => marker.remove();
   }, [loaded, selectedAt]);
+  const pulseColour = selectedCamera ? congestion.get(selectedCamera.id)?.color ?? '' : '';
+  useEffect(() => {
+    if (pulse.current) pulse.current.style.color = pulseColour; // Unknown: the theme's
+  }, [pulseColour, selectedAt, loaded]);
 
   // Optional layers. The congestion lines are hidden by making them transparent, not with
   // 'visibility': that clears the source's tiles until the map next moves, and the card
@@ -459,8 +464,9 @@ export default function Map({
           width: 26,
           height: 26,
           pointerEvents: 'none',
+          color: 'primary.main',
           '&::before, &::after': {
-            content: '""', position: 'absolute', inset: 0, borderRadius: '50%', border: 2, borderColor: 'primary.main',
+            content: '""', position: 'absolute', inset: 0, borderRadius: '50%', border: '2.5px solid currentColor',
           },
           '&::after': { animation: 'camera-pulse 1.8s ease-out infinite' },
           '@media (prefers-reduced-motion: reduce)': { '&::after': { animation: 'none', opacity: 0 } },
