@@ -13,6 +13,11 @@ maplibregl.addProtocol('om', omProtocol);
 
 export default maplibregl;
 
+// Material's "info" icon (outlined), for the button that opens the map's credits on a narrow map
+const INFO = `url("data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 28 28" fill="rgba(0,0,0,0.75)"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>',
+)}")`;
+
 // MapLibre's own controls, in either theme:
 // - the zoom and compass buttons like the app's buttons over the map (MUI's small contained ones):
 //   its primary colour, an icon in its contrasting text colour, its corners, shadow and opacity
@@ -33,6 +38,7 @@ export const mapControls = {
   '& .maplibregl-ctrl-group .maplibregl-ctrl-icon': {
     filter: theme => (theme.palette.primary.contrastText === '#fff' ? 'brightness(0) invert(1)' : 'brightness(0)'),
   },
+  '& .maplibregl-ctrl-attrib-button': { backgroundImage: INFO },
   '& .maplibregl-ctrl.maplibregl-ctrl-scale': { lineHeight: '12px', px: '4px', borderWidth: '0 1.5px 1.5px' },
 };
 
