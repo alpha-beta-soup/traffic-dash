@@ -105,6 +105,9 @@ export default function Map({
       attributionControl: { customAttribution: NZTA_ATTRIBUTION },
     });
     mapRef.current = map;
+    // Narrow (folded to the ⓘ), the credits start folded too, rather than over the map's keys:
+    // at once, not on load, which can take a while
+    map.getContainer().querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
     // On a touchscreen, pinching zooms, so only the compass: shown once the map's turned or
     // tilted, to put it back
     map.addControl(new maplibregl.NavigationControl({ showZoom: !TOUCH, visualizePitch: true }), 'top-right');
@@ -155,8 +158,6 @@ export default function Map({
     };
     snapEventsRef.current = () => { snapNeeded = true; if (map.loaded()) snapEventRoads(); };
     map.on('load', () => {
-      // Narrow (folded to the ⓘ), the credits start folded too, rather than over the map's keys
-      map.getContainer().querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
       addLayers(map, traffic, dark, weather);
       setLoaded(true);
       reportBounds();
