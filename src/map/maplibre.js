@@ -41,6 +41,12 @@ export const mapControls = {
   '& .maplibregl-ctrl button.maplibregl-ctrl-zoom-out .maplibregl-ctrl-icon': { backgroundImage: iconImage('zoomOut'), backgroundSize: 20 },
   '& .maplibregl-ctrl button.maplibregl-ctrl-compass .maplibregl-ctrl-icon': { backgroundImage: iconImage('north'), backgroundSize: 20 },
   '& .maplibregl-ctrl-attrib-button': { backgroundImage: iconImage('info', 'rgba(0,0,0,0.75)'), backgroundSize: 20, backgroundPosition: 'center', backgroundRepeat: 'no-repeat' },
+  // Folded to its ⓘ (a narrow map), the credits' button sits beside the scale, in the corner,
+  // rather than under it; open in full, the credits go below it again
+  '& .maplibregl-ctrl-bottom-right:has(.maplibregl-compact:not(.maplibregl-compact-show))': {
+    display: 'flex', alignItems: 'center',
+    '& .maplibregl-ctrl-scale': { my: '10px', mr: 0 }, // Margins as the ⓘ's, so they're level
+  },
   '& .maplibregl-ctrl.maplibregl-ctrl-scale': { lineHeight: '12px', px: '4px', borderWidth: '0 1.5px 1.5px' },
 };
 
