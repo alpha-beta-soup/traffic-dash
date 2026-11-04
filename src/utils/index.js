@@ -15,6 +15,7 @@ export { default as describeWind } from './wind';
 export { default as sunEvent } from './sunEvent';
 export { default as jpegSize, resolutionLabel } from './jpegSize';
 export { insideRing, warningColour, warningFeatures, warningTextColour, warningsAt } from './weatherWarnings';
+export { default as staleFeeds } from './staleFeeds';
 export { default as trend } from './trend';
 export {
   CHANGE_KEY, CHANGE_LABELS, CHANGE_SIGNS, SAME_SPOT, VEHICLE_CLASSES, changeColour, changeLevel, changesOf, countedTo, countFeatures,

@@ -9,8 +9,10 @@ import AppBar from './components/AppBar';
 import Camera from './components/Camera';
 import ErrorBoundary from './components/ErrorBoundary';
 import ErrorSnackbar from './components/ErrorSnackbar';
+import StaleNotice from './components/StaleNotice';
 import { DEFAULT_LAYERS } from './components/LayersMenu';
 import TrafficMap from './components/Map';
+import useFeed from './hooks/useFeed';
 import useStoredSetting from './hooks/useStoredSetting';
 import CameraPage from './pages/CameraPage';
 import { matchRoute, navigate, usePath } from './router';
@@ -27,6 +29,7 @@ const COUNTS_REFRESH = 60 * 60_000; // NZTA's counts arrive weekly or so
 const CAMERAS_REFRESH = 2 * 60_000;
 const CARD_SIZE = { xs: 12, sm: 6, md: 4, lg: 2 }; // Grid columns per card, out of 12
 const NO_CONGESTION = new Map();
+const withMessages = signs => signs.filter(sign => sign.message); // Signs showing something
 
 const sameCongestion = (a, b) => (a?.level === b?.level && a?.score === b?.score
   && a?.segments.length === b?.segments.length);
@@ -34,10 +37,6 @@ const sameCongestion = (a, b) => (a?.level === b?.level && a?.score === b?.score
 export default function App() {
   const [config, setConfig] = useState(null);
   const [cameras, setCameras] = useState([]);
-  const [signs, setSigns] = useState([]);
-  const [events, setEvents] = useState([]);
-  const [warnings, setWarnings] = useState([]); // MetService weather warnings
-  const [trafficCounts, setTrafficCounts] = useState([]); // NZTA's counting sites, loaded with their layer
   const [bounds, setBounds] = useState(null);
   const [pinned, setPinned] = useStoredSetting('pinned', []); // camera ids
   const [loopAll, setLoopAll] = useStoredSetting('loop-all', true);
@@ -82,36 +81,21 @@ export default function App() {
     return () => clearInterval(timer);
   }, [loadCameras]);
 
-  useEffect(() => {
-    const loadSigns = () => fetchJson('/api/signs')
-      .then(data => setSigns(data.filter(sign => sign.message)))
-      .catch(console.error);
-    loadSigns();
-    const timer = setInterval(loadSigns, SIGNS_REFRESH);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const loadEvents = () => fetchJson('/api/events').then(setEvents).catch(console.error);
-    loadEvents();
-    const timer = setInterval(loadEvents, EVENTS_REFRESH);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const loadWarnings = () => fetchJson('/api/weather-warnings').then(setWarnings).catch(console.error);
-    loadWarnings();
-    const timer = setInterval(loadWarnings, WARNINGS_REFRESH);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    if (!mapLayers.counts) return undefined;
-    const loadCounts = () => fetchJson('/api/traffic-counts').then(setTrafficCounts).catch(console.error);
-    loadCounts();
-    const timer = setInterval(loadCounts, COUNTS_REFRESH);
-    return () => clearInterval(timer);
-  }, [mapLayers.counts]);
+  // The feeds over the map, each polled, and named for saying when it's out of date (StaleNotice)
+  const signsFeed = useFeed('/api/signs', SIGNS_REFRESH, { select: withMessages });
+  const eventsFeed = useFeed('/api/events', EVENTS_REFRESH);
+  const warningsFeed = useFeed('/api/weather-warnings', WARNINGS_REFRESH); // MetService's
+  const countsFeed = useFeed('/api/traffic-counts', COUNTS_REFRESH, { enabled: mapLayers.counts }); // NZTA's, with their layer
+  const { data: signs } = signsFeed;
+  const { data: events } = eventsFeed;
+  const { data: warnings } = warningsFeed;
+  const { data: trafficCounts } = countsFeed;
+  const feeds = [
+    { name: 'message signs', refresh: SIGNS_REFRESH, ...signsFeed },
+    { name: 'road events', refresh: EVENTS_REFRESH, ...eventsFeed },
+    { name: 'weather warnings', refresh: WARNINGS_REFRESH, ...warningsFeed },
+    ...(mapLayers.counts ? [{ name: 'traffic counts', refresh: COUNTS_REFRESH, ...countsFeed }] : []),
+  ];
 
   // Results for the cameras the map just evaluated; others keep their last known congestion.
   // Only update when something changed, as each update redraws the map, which re-evaluates.
@@ -172,6 +156,7 @@ export default function App() {
         onThemeSetting={setThemeSetting}
         onBack={route.page === 'dashboard' ? null : () => navigate('/')}
       />
+      <StaleNotice feeds={feeds} />
       {route.page === 'camera' && (
         <CameraPage
           id={route.id}
