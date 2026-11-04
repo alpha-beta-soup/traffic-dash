@@ -2,9 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
+import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Slider from '@mui/material/Slider';
 import Snackbar from '@mui/material/Snackbar';
+import SvgIcon from '@mui/material/SvgIcon';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
 import Arrow from '../components/Arrow';
@@ -204,6 +207,29 @@ function LargeImage({
   );
 }
 
+// The player's buttons, as media players draw them (Material's icons): a bar and a triangle to
+// step back and forward, play and pause, and a broadcast for live
+const ICONS = {
+  back: 'M6 6h2v12H6zm3.5 6 8.5 6V6z',
+  forward: 'M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z',
+  play: 'M8 5v14l11-7z',
+  pause: 'M6 19h4V5H6v14zm8-14v14h4V5h-4z',
+  live: 'M7.76 16.24C6.67 15.16 6 13.66 6 12s.67-3.16 1.76-4.24l1.42 1.42C8.45 9.9 8 10.9 8 12c0 1.1.45 2.1 1.17 2.83l-1.41 1.41zm8.48 0C17.33 15.16 18 13.66 18 12s-.67-3.16-1.76-4.24l-1.42 1.42C15.55 9.9 16 10.9 16 12c0 1.1-.45 2.1-1.17 2.83l1.41 1.41zM12 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm8 2c0 2.21-.9 4.21-2.35 5.65l1.42 1.42C20.88 17.26 22 14.76 22 12s-1.12-5.26-2.93-7.07l-1.42 1.42C19.1 7.79 20 9.79 20 12zM6.35 6.35L4.93 4.93C3.12 6.74 2 9.24 2 12s1.12 5.26 2.93 7.07l1.42-1.42C4.9 16.21 4 14.21 4 12s.9-4.21 2.35-5.65z',
+};
+
+// One of the player's buttons: an icon, named by `label` (as its tooltip too)
+function PlayerButton({
+  icon, label, onClick, pressed, sx,
+}) {
+  return (
+    <Tooltip title={label}>
+      <IconButton color="primary" onClick={onClick} aria-label={label} aria-pressed={pressed} sx={sx}>
+        <SvgIcon><path d={ICONS[icon]} /></SvgIcon>
+      </IconButton>
+    </Tooltip>
+  );
+}
+
 // Live, play/pause, step and a scrubber across the camera's saved history
 function PlaybackControls({ player, frames }) {
   const { mode, index, count } = player;
@@ -216,13 +242,14 @@ function PlaybackControls({ player, frames }) {
   }
   return (
     <Box sx={{ mt: 1 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-        <ToggleButton on={mode === 'live'} onClick={player.live}>Live</ToggleButton>
-        <Button size="small" onClick={() => player.step(-1)} aria-label="Previous frame">‹ Frame</Button>
-        <Button size="small" variant="outlined" onClick={mode === 'playing' ? player.pause : player.play}>
-          {mode === 'playing' ? 'Pause' : 'Play'}
-        </Button>
-        <Button size="small" onClick={() => player.step(1)} aria-label="Next frame">Frame ›</Button>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        {/* Red while live, as a broadcast's light is */}
+        <PlayerButton icon="live" label="Live" onClick={player.live} pressed={mode === 'live'} sx={{ color: mode === 'live' ? 'error.main' : 'text.secondary' }} />
+        <PlayerButton icon="back" label="Previous frame" onClick={() => player.step(-1)} />
+        {mode === 'playing'
+          ? <PlayerButton icon="pause" label="Pause" onClick={player.pause} />
+          : <PlayerButton icon="play" label="Play" onClick={player.play} />}
+        <PlayerButton icon="forward" label="Next frame" onClick={() => player.step(1)} />
       </Box>
       <Slider
         size="small"
