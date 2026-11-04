@@ -3,7 +3,7 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import CssBaseline from '@mui/material/CssBaseline';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { ThemeProvider } from '@mui/material/styles';
+import { ThemeProvider, getOverlayAlpha, lighten } from '@mui/material/styles';
 
 import AppBar from './components/AppBar';
 import Camera from './components/Camera';
@@ -67,6 +67,13 @@ export default function App() {
   const systemDark = useMediaQuery('(prefers-color-scheme: dark)');
   const mode = themeSetting === 'auto' ? (systemDark ? 'dark' : 'light') : themeSetting;
   const theme = useMemo(() => makeTheme(mode), [mode]);
+  // The browser's bar (on a phone), and the app's when added to the home screen, as the header is:
+  // on the dark theme, the paper colour lightened as a raised surface is (the header's elevation, 4)
+  useEffect(() => {
+    const { grey, background } = theme.palette;
+    const colour = mode === 'dark' ? lighten(background.paper, Number(getOverlayAlpha(4))) : grey[100];
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', colour);
+  }, [theme, mode]);
   const [error, setError] = useState(null);
 
   // Keeps the current list when nothing changed, so a refresh doesn't redraw the map and cards.
