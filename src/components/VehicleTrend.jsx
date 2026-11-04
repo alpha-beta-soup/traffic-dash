@@ -129,7 +129,7 @@ export default function VehicleTrend({ counts, cursor }) {
         )}
       </Box>
       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-        Dots: each frame. Line: average over {TREND_WINDOW / 60_000} minutes, with its 95% band. Far-off and hidden vehicles are missed, so read it against this camera&apos;s own level.
+        Vehicles the camera can see, roughly: not a traffic count.
       </Typography>
     </Box>
   );
