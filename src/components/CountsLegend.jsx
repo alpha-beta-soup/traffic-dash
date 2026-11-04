@@ -1,4 +1,5 @@
 import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { useTheme } from '@mui/material/styles';
@@ -56,17 +57,15 @@ export default function CountsLegend({
           const shown = !hidden.includes(level);
           return (
             <li key={level}>
-              <Box
-                component="button"
-                type="button"
+              <ButtonBase
                 aria-pressed={shown}
                 onClick={() => onToggle(level)}
                 sx={{
-                  display: 'flex', alignItems: 'center', gap: 1, width: '100%', minHeight: touch ? 28 : 0, p: 0, border: 0, borderRadius: 0.5,
-                  bgcolor: 'transparent', color: 'inherit', font: 'inherit', textAlign: 'left', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 1, width: '100%', minHeight: touch ? 28 : 0,
+                  borderRadius: 0.5, font: 'inherit', textAlign: 'left',
                   opacity: shown ? 1 : 0.45, textDecoration: shown ? 'none' : 'line-through',
                   '&:hover': { bgcolor: 'action.hover' },
-                  '&:focus-visible': { outline: 2, outlineColor: 'primary.main', outlineStyle: 'solid' },
+                  '&.Mui-focusVisible': { outline: 2, outlineColor: 'primary.main', outlineStyle: 'solid' },
                 }}
               >
                 <Box sx={{
@@ -77,7 +76,7 @@ export default function CountsLegend({
                   {CHANGE_SIGNS[level]?.[0]}
                 </Box>
                 {label}
-              </Box>
+              </ButtonBase>
             </li>
           );
         })}

@@ -1,4 +1,5 @@
 import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
 import { alpha } from '@mui/material/styles';
 
 import Icon from './Icon';
@@ -26,21 +27,19 @@ function Panel({
   const touch = useTouch();
   return (
     <Box sx={PANEL_SX} aria-label={label}>
-      <Box
-        component="button"
-        type="button"
+      <ButtonBase
         aria-expanded={open}
         onClick={() => setOpen(on => !on)}
         sx={{
-          display: 'flex', alignItems: 'baseline', gap: 0.5, width: '100%', py: touch ? 0.75 : 0, px: 0, border: 0, bgcolor: 'transparent',
-          color: 'inherit', font: 'inherit', textAlign: 'left', cursor: 'pointer',
-          '&:focus-visible': { outline: 2, outlineColor: 'primary.main', outlineStyle: 'solid' },
+          display: 'flex', alignItems: 'baseline', justifyContent: 'flex-start', gap: 0.5, width: '100%', py: touch ? 0.75 : 0,
+          borderRadius: 0.5, font: 'inherit', textAlign: 'left',
+          '&.Mui-focusVisible': { outline: 2, outlineColor: 'primary.main', outlineStyle: 'solid' },
         }}
       >
         <Box component="span" sx={{ fontWeight: 500 }}>{title}</Box>
         {!open && note && <Box component="span" sx={{ color: 'text.secondary' }}>· {note}</Box>}
         <Icon name={open ? 'expand' : 'chevron'} aria-hidden="true" sx={{ ml: 'auto', pl: 0.25, fontSize: '1.4em', alignSelf: 'center', color: 'text.secondary' }} />
-      </Box>
+      </ButtonBase>
       {open && children}
     </Box>
   );
