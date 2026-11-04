@@ -20,7 +20,7 @@ import Typography from '@mui/material/Typography';
 import AboutDialog from './AboutDialog';
 import Arrow from './Arrow';
 import Icon from './Icon';
-import { THEME_SETTINGS } from '../theme';
+import { THEME_SETTINGS, capsPadding } from '../theme';
 import useNow from '../hooks/useNow';
 import { usePhone } from '../hooks/useScreen';
 import { version } from '../../package.json';
@@ -158,7 +158,7 @@ function WideBar({
                 onChange={(e, value) => value && onCongestionFilter(value)} // Always one chosen
                 aria-labelledby="congestion-filter"
               >
-                {CONGESTION_FILTERS.map(([value, label]) => <ToggleButton key={value} value={value} sx={{ py: 0.25 }}>{label}</ToggleButton>)}
+                {CONGESTION_FILTERS.map(([value, label]) => <ToggleButton key={value} value={value} sx={capsPadding(2)}>{label}</ToggleButton>)}
               </ToggleButtonGroup>
             </Box>
           )}
