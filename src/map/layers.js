@@ -147,22 +147,27 @@ export const TRAFFIC_LAYERS = ['traffic', 'traffic-bridges'];
 const ON_BRIDGE = ['==', ['get', 'structure'], 'bridge'];
 
 // The base map's water (OpenMapTiles' water, waterway and water_name layers) in neutral greys:
-// blue water matters little here, and would hide the blue of the rain layer and road events
+// blue water matters little here, and would hide the blue of the rain layer and road events.
+// A base map style (its JSON) so changed: given to the map as its transformStyle, so the water is
+// grey from the first frame, rather than blue until the style has loaded.
 const WATER = {
   light: { fill: '#d5d8dc', line: '#c3c8ce', text: '#6b7178' },
   dark: { fill: '#2f3338', line: '#3b4047', text: '#99a0a8' },
 };
 const WATER_PAINT = { fill: 'fill-color', line: 'line-color', symbol: 'text-color' };
-const greyWater = (map, dark) => {
+export const greyWater = (style, dark) => {
   const colours = WATER[dark ? 'dark' : 'light'];
-  map.getStyle().layers
-    .filter(layer => ['water', 'waterway', 'water_name'].includes(layer['source-layer']) && WATER_PAINT[layer.type])
-    .forEach(layer => map.setPaintProperty(layer.id, WATER_PAINT[layer.type], colours[layer.type === 'symbol' ? 'text' : layer.type]));
+  const isWater = layer => ['water', 'waterway', 'water_name'].includes(layer['source-layer']) && WATER_PAINT[layer.type];
+  return {
+    ...style,
+    layers: style.layers.map(layer => (isWater(layer)
+      ? { ...layer, paint: { ...layer.paint, [WATER_PAINT[layer.type]]: colours[layer.type === 'symbol' ? 'text' : layer.type] } }
+      : layer)),
+  };
 };
 
 // weather: whether the server has weather (an OpenWeatherMap key), for the rain layer
 export const addLayers = (map, traffic, dark, weather = false) => {
-  greyWater(map, dark);
   const belowLabels = firstLabelLayer(map);
   const belowBridges = firstBridgeLayer(map) ?? belowLabels;
   const belowRoads = firstRoadLayer(map) ?? belowBridges;

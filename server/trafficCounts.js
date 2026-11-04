@@ -7,6 +7,7 @@
 // that doesn't come to take a long disruption as normal.
 //   https://opendata-nzta.opendata.arcgis.com/ (TMS daily traffic counts)
 import { anniversaryOf, holidaysAt } from '../shared/holidays.js';
+import { VEHICLES } from '../shared/vehicleClasses.js';
 
 const SERVICES = 'https://services.arcgis.com/CXBb7LAjgIIdcsPt/arcgis/rest/services';
 export const SITES_URL = `${SERVICES}/Assets_SHTrafficMonitoringSites/FeatureServer/0/query`;
@@ -104,20 +105,28 @@ const byDay = (rows, shift = 0) => {
   return sites;
 };
 
-// The change over the last `days` days of `series` ([{ total, lastYear, holiday, lastYearHoliday }],
-// oldest first) from a year before, as a fraction (0.1 is 10% busier), or null without enough
-// days counted both years. Public holidays either year are left out: some move (Easter, by up to
+// Vehicles of a class a day, the year before, to compare it at all: a few dozen trucks swing by
+// a quarter on chance alone
+const MIN_DAILY = 40;
+
+// The change over the last `days` days of `series` ([{ total, heavy, lastYear, lastYearHeavy,
+// holiday, lastYearHoliday }], oldest first) from a year before, of a class of `vehicles`
+// (VEHICLES), as a fraction (0.1 is 10% busier), or null without enough days counted both years,
+// or too few vehicles. Public holidays either year are left out: some move (Easter, by up to
 // five weeks), so would otherwise make a week look much quieter, then one much busier.
-export function change(series, days) {
+export function change(series, days, vehicles = 'all') {
+  const [now, before] = VEHICLES[vehicles];
   const paired = series.slice(-days)
-    .filter(d => d.total !== null && d.lastYear !== null && !d.holiday && !d.lastYearHoliday);
+    .filter(d => now(d) !== null && before(d) !== null && !d.holiday && !d.lastYearHoliday);
   if (paired.length < days / 2) return null;
-  const before = paired.reduce((sum, d) => sum + d.lastYear, 0);
-  return before > 0 ? paired.reduce((sum, d) => sum + d.total, 0) / before - 1 : null;
+  const sum = count => paired.reduce((total, d) => total + count(d), 0);
+  const was = sum(before);
+  return was >= MIN_DAILY * paired.length ? sum(now) / was - 1 : null;
 }
 
 // Each site with recent counts: its place, its latest day, its change from a year before over the
-// latest week and four weeks, and its daily counts ({ date, total, heavy, lastYear, holiday,
+// latest week and four weeks (week, month: of all vehicles; and heavy: { week, month } and light
+// likewise), and its daily counts ({ date, total, heavy, lastYear, lastYearHeavy, holiday,
 // lastYearHoliday }, the holidays named or null) for the last SHOWN_DAYS days to its latest. A day
 // missing a lane (fewer rows than the site's usual) counts as not counted, rather than as a quiet day.
 export function summarise(sites, recentRows, lastYearRows, today) {
@@ -144,11 +153,13 @@ export function summarise(sites, recentRows, lastYearRows, today) {
       const ms = Date.parse(latest) - (SHOWN_DAYS - 1 - i) * DAY;
       const date = isoDate(ms);
       const day = complete(days.get(date));
+      const dayBefore = complete(before.get(date));
       return {
         date,
         total: day?.total ?? null,
         heavy: day?.heavy ?? null,
-        lastYear: complete(before.get(date))?.total ?? null,
+        lastYear: dayBefore?.total ?? null,
+        lastYearHeavy: dayBefore?.heavy ?? null,
         holiday: holidayAt(site, ms),
         lastYearHoliday: holidayAt(site, ms - YEAR),
       };
@@ -158,6 +169,10 @@ export function summarise(sites, recentRows, lastYearRows, today) {
       latest,
       week: change(series, PERIODS.week),
       month: change(series, PERIODS.month),
+      ...Object.fromEntries(['heavy', 'light'].map(vehicles => [vehicles, {
+        week: change(series, PERIODS.week, vehicles),
+        month: change(series, PERIODS.month, vehicles),
+      }])),
       days: series,
     }];
   });

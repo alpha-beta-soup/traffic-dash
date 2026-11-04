@@ -13,11 +13,31 @@ maplibregl.addProtocol('om', omProtocol);
 
 export default maplibregl;
 
-// MapLibre's own controls are light; on the dark theme, give them its colours
+// MapLibre's own controls, in either theme:
+// - the zoom and compass buttons like the app's buttons over the map (MUI's small contained ones):
+//   its primary colour, an icon in its contrasting text colour, its corners, shadow and opacity
+// - a slimmer scale bar, whose 10px text otherwise sits in the map's 20px lines (by its own
+//   selector, so the dark theme's colours below add to it)
+const BUTTON = 31; // px: as tall as a small MUI button
+export const mapControls = {
+  '& .maplibregl-ctrl.maplibregl-ctrl-group': {
+    bgcolor: 'primary.main', borderRadius: 1, boxShadow: 2, opacity: 0.85, overflow: 'hidden',
+  },
+  '& .maplibregl-ctrl-group button': {
+    width: BUTTON,
+    height: BUTTON,
+    '&:not(:disabled):hover': { bgcolor: 'primary.dark' },
+    '& + button': { borderTop: theme => `1px solid ${alpha(theme.palette.primary.contrastText, 0.3)}` },
+  },
+  // The icons are dark; made white, or kept dark, as the theme's text on its primary colour is
+  '& .maplibregl-ctrl-group .maplibregl-ctrl-icon': {
+    filter: theme => (theme.palette.primary.contrastText === '#fff' ? 'brightness(0) invert(1)' : 'brightness(0)'),
+  },
+  '& .maplibregl-ctrl.maplibregl-ctrl-scale': { lineHeight: '12px', px: '4px', borderWidth: '0 1.5px 1.5px' },
+};
+
+// MapLibre's scale and credits are light; on the dark theme, give them its colours
 export const mapControlsDark = {
-  '& .maplibregl-ctrl-group': { bgcolor: 'background.paper' },
-  '& .maplibregl-ctrl-group button + button': { borderTopColor: 'divider' },
-  '& .maplibregl-ctrl-icon': { filter: 'invert(1)' },
   '& .maplibregl-ctrl-scale': {
     bgcolor: theme => alpha(theme.palette.background.paper, 0.8), color: 'text.secondary', borderColor: 'text.secondary',
   },

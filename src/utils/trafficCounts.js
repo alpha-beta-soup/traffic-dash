@@ -40,8 +40,19 @@ export const changeLevel = (change) => {
   return 'much-busier';
 };
 
-// The week if known, else the four weeks
-export const siteChange = site => site.week ?? site.month;
+// The classes of vehicles to compare, as NZTA counts them (by length; see shared/vehicleClasses)
+export const VEHICLE_CLASSES = { all: 'All vehicles', heavy: 'Heavy vehicles', light: 'Light vehicles' };
+
+// A site's changes, of a class of `vehicles`: { week, month } (either null if unknown)
+export const changesOf = (site, vehicles = 'all') => (vehicles === 'all'
+  ? { week: site.week, month: site.month }
+  : site[vehicles] ?? { week: null, month: null });
+
+// The week's change if known, else the four weeks'
+export const siteChange = (site, vehicles = 'all') => {
+  const { week, month } = changesOf(site, vehicles);
+  return week ?? month;
+};
 
 // Blue for quieter, magenta for busier (clear of the congestion lines' orange and red, and of each
 // other in colour blindness), paler for a smaller change, and grey for about the same: per theme
@@ -81,14 +92,16 @@ export const placesOf = (sites, radius = PLACE_RADIUS) => [...sites].sort((a, b)
 }, []);
 
 // The sites as map points, one per place (sites within `radius` m): a site is often one direction
-// of a road, with the other direction (and an interchange's ramps) beside it. Each point shows its biggest change (as a colour, a sign, and a label
-// unless it's about the same), is sized by its busiest site's traffic, and carries its sites' refs.
-export function countFeatures(sites, dark, radius = PLACE_RADIUS) {
+// of a road, with the other direction (and an interchange's ramps) beside it. Each point shows its
+// biggest change of a class of `vehicles` (as a colour, a sign, and a label unless it's about the
+// same), is sized by its busiest site's traffic, and carries its sites' refs.
+export function countFeatures(sites, dark, { radius = PLACE_RADIUS, vehicles = 'all' } = {}) {
+  const changeAt = site => siteChange(site, vehicles);
   return {
     type: 'FeatureCollection',
     features: placesOf(sites, radius).map((group) => {
-      const biggest = group.reduce((a, b) => (Math.abs(siteChange(b) ?? 0) > Math.abs(siteChange(a) ?? 0) ? b : a));
-      const change = siteChange(biggest);
+      const biggest = group.reduce((a, b) => (Math.abs(changeAt(b) ?? 0) > Math.abs(changeAt(a) ?? 0) ? b : a));
+      const change = changeAt(biggest);
       const level = changeLevel(change);
       const [sign = '', ink = ''] = CHANGE_SIGNS[level] ?? [];
       return {

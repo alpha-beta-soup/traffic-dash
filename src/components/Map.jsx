@@ -15,12 +15,12 @@ import useLatest from '../hooks/useLatest';
 import useStoredSetting from '../hooks/useStoredSetting';
 import {
   COUNT_DOTS, COUNT_LAYERS, EMPTY, EVENT_LAYERS, RAIN_LAYER, RAIN_REFRESH, SIGN_LAYERS, TRAFFIC_LAYERS, WARNING_LAYERS, WIND_LAYERS, WIND_REFRESH,
-  addLayers, countFilters, rainTiles, refreshWind, trafficOpacity, trafficTiles,
+  addLayers, countFilters, greyWater, rainTiles, refreshWind, trafficOpacity, trafficTiles,
 } from '../map/layers';
 import {
   addSignHover, hideExpandedSign, setSigns, startSignPaging,
 } from '../map/signs';
-import maplibregl, { mapControlsDark } from '../map/maplibre';
+import maplibregl, { mapControls, mapControlsDark } from '../map/maplibre';
 import { TRAFFIC_REFRESH } from '../consts';
 import {
   SAME_SPOT, cameraCongestion, countFeatures, filterCamerasByBbox, groupCameraSites, snapEvents, warningColour, warningFeatures, warningsAt,
@@ -42,7 +42,7 @@ const NZTA_ATTRIBUTION = 'Cameras &amp; signs: <a href="https://www.journeys.nzt
 const INTERACTIONS = ['boxZoom', 'doubleClickZoom', 'dragPan', 'dragRotate', 'keyboard', 'scrollZoom', 'touchPitch', 'touchZoomRotate'];
 // Credits are left off the minimised map. Note: OpenStreetMap, OpenMapTiles and Mapbox ask for
 // attribution wherever their data is shown; add a page-level credit if this is ever hosted.
-const attributionControl = () => new maplibregl.AttributionControl({ compact: false, customAttribution: NZTA_ATTRIBUTION });
+const MAP_FILL = { position: 'absolute', inset: 0 };
 
 const toGeojson = items => ({
   type: 'FeatureCollection',
@@ -70,7 +70,6 @@ export default function Map({
   const warningsRef = useLatest(warnings);
   const congestionRef = useLatest(congestion);
   const minimisedRef = useLatest(minimised);
-  const attributionRef = useRef(null);
   const expandedView = useRef(null); // The last settled full-size view
   // Set from minimising until the full-size view is back; the map's own resize events
   // in between mustn't count as the user's view
@@ -97,16 +96,15 @@ export default function Map({
     const map = new maplibregl.Map({
       container: container.current,
       style: styleUrl,
+      transformStyle: (previous, style) => greyWater(style, dark),
       // Rebuilt for a new style (e.g. the dark theme): keep the view. Otherwise start where it
       // last was (e.g. back from a camera page), if anywhere.
       ...(expandedView.current
         ? (({ center, zoom, bearing, pitch }) => ({ center, zoom, bearing, pitch }))(expandedView.current)
         : initialViewRef.current ?? { center: DEFAULT_LOCATION, zoom: DEFAULT_ZOOM }),
-      attributionControl: false, // Added below, so it can be left off when minimised
+      attributionControl: { compact: false, customAttribution: NZTA_ATTRIBUTION }, // Hidden while minimised
     });
     mapRef.current = map;
-    attributionRef.current = attributionControl();
-    if (!minimisedRef.current) map.addControl(attributionRef.current);
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
     map.addControl(new maplibregl.ScaleControl(), 'bottom-right');
 
@@ -268,8 +266,6 @@ export default function Map({
     if (!map) return;
     map.resize();
     INTERACTIONS.forEach(handler => map[handler][minimised ? 'disable' : 'enable']());
-    if (minimised) map.removeControl(attributionRef.current);
-    else if (!map.hasControl(attributionRef.current)) map.addControl(attributionRef.current);
     if (minimised) {
       const view = expandedView.current;
       restoreView.current = view;
@@ -337,11 +333,16 @@ export default function Map({
     if (loaded) mapRef.current.getSource('weather-warnings').setData(warningFeatures(warnings));
   }, [loaded, warnings]);
 
+  // The counts compare all vehicles, or heavy or light ones (chosen in their key)
+  const [vehicles, setVehicles] = useStoredSetting('count-vehicles', 'all');
   useEffect(() => {
-    if (!loaded) return;
-    mapRef.current.getSource('traffic-counts').setData(countFeatures(trafficCounts, dark));
-    mapRef.current.getSource('traffic-count-sites').setData(countFeatures(trafficCounts, dark, SAME_SPOT));
-  }, [loaded, trafficCounts, dark]);
+    const map = mapRef.current;
+    // A new theme rebuilds the map (for its style), and this runs once more with the old map's
+    // `loaded`, against the new map before it has its layers: it runs again once that has loaded
+    if (!loaded || !map.getSource('traffic-counts')) return;
+    map.getSource('traffic-counts').setData(countFeatures(trafficCounts, dark, { vehicles }));
+    map.getSource('traffic-count-sites').setData(countFeatures(trafficCounts, dark, { radius: SAME_SPOT, vehicles }));
+  }, [loaded, trafficCounts, dark, vehicles]);
 
   // The levels of change hidden from the counts (clicked off in their key)
   const [hiddenLevels, setHiddenLevels] = useStoredSetting('count-levels-hidden', []);
@@ -368,8 +369,10 @@ export default function Map({
         position: 'relative',
         overflow: 'hidden',
         height: minimised ? '100%' : 'auto',
-        // The zoom controls go too: nothing on a minimised map responds
-        '& .maplibregl-ctrl-top-right': { display: minimised ? 'none' : 'block' },
+        // The zoom controls go too: nothing on a minimised map responds. So does the attribution,
+        // which would cover it; hidden rather than removed, as it would come back above the scale.
+        '& .maplibregl-ctrl-top-right, & .maplibregl-ctrl-attrib': minimised ? { display: 'none' } : {},
+        ...mapControls,
         ...(dark && mapControlsDark),
       }}
     >
@@ -395,20 +398,33 @@ export default function Map({
         </Button>
       </Box>
       <Box
-        ref={container}
         sx={{
+          position: 'relative',
           width: '100%',
           // Card-sized when minimised: fills its grid cell, and is at least as tall as a card's image
           height: minimised ? '100%' : '46.5vh',
           minHeight: minimised ? 'calc(25.5vh + 8px)' : undefined,
         }}
-      />
+      >
+        {/* The map's own element, whose classes React never sets: MapLibre adds its own
+            (maplibregl-map, for its controls' styles), which re-rendering a Box's changed sx would
+            wipe out */}
+        <div ref={container} style={MAP_FILL} />
+      </Box>
       {!minimised && (
         <Box sx={{
           position: 'absolute', left: 10, bottom: 26, zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1,
         }}
         >
-          {layers.counts && trafficCounts.length > 0 && <CountsLegend sites={trafficCounts} hidden={hiddenLevels} onToggle={toggleLevel} />}
+          {layers.counts && trafficCounts.length > 0 && (
+            <CountsLegend
+              sites={trafficCounts}
+              hidden={hiddenLevels}
+              onToggle={toggleLevel}
+              vehicles={vehicles}
+              onVehicles={setVehicles}
+            />
+          )}
           {traffic && layers.traffic && <CongestionLegend />}
         </Box>
       )}
@@ -430,6 +446,7 @@ export default function Map({
           map={mapRef.current}
           lngLat={hoveredCounts.lngLat}
           sites={hoveredCounts.refs.split(',').map(ref => trafficCounts.find(site => site.ref === ref)).filter(Boolean)}
+          vehicles={vehicles}
         />
       )}
       {hoveredEvent && !minimised && mapRef.current && (

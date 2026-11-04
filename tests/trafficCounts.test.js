@@ -32,10 +32,12 @@ describe('traffic counts', () => {
     assert.equal(a.latest, '2026-11-01');
     assert.equal(a.days.length, SHOWN_DAYS);
     assert.deepEqual(a.days.at(-1), {
-      date: '2026-11-01', total: 12000, heavy: 1200, lastYear: 10000, holiday: null, lastYearHoliday: null,
+      date: '2026-11-01', total: 12000, heavy: 1200, lastYear: 10000, lastYearHeavy: 1000, holiday: null, lastYearHoliday: null,
     });
     assert.ok(Math.abs(a.week - 0.2) < 1e-9);
     assert.ok(Math.abs(a.month - 0.2) < 1e-9);
+    assert.ok(Math.abs(a.heavy.week - 0.2) < 1e-9); // 1200 heavy a day against 1000
+    assert.ok(Math.abs(a.light.month - 0.2) < 1e-9);
   });
 
   it('leaves public holidays out of the comparison, and names them', () => {
@@ -60,6 +62,18 @@ describe('traffic counts', () => {
     const [a] = summarise(sites, recent, days('A', last - YEAR, 20, () => 10000), TODAY);
     assert.equal(a.latest, isoOf(last - DAY)); // The partial day isn't the latest
     assert.equal(a.week, 0);
+  });
+
+  it('compares heavy and light vehicles apart, given enough of them', () => {
+    const day = (heavy, lastYearHeavy) => ({
+      total: 1000, heavy, lastYear: 1000, lastYearHeavy, holiday: null, lastYearHoliday: null,
+    });
+    const trucks = Array.from({ length: 7 }, () => day(130, 100)); // Freight up, cars down
+    assert.equal(change(trucks, 7), 0);
+    assert.ok(Math.abs(change(trucks, 7, 'heavy') - 0.3) < 1e-9);
+    assert.ok(Math.abs(change(trucks, 7, 'light') - -30 / 900) < 1e-9);
+    // 30 trucks a day the year before: too few to say
+    assert.equal(change(Array.from({ length: 7 }, () => day(40, 30)), 7, 'heavy'), null);
   });
 
   it('needs half the days counted both years to compare', () => {
@@ -127,7 +141,10 @@ describe('traffic counts', () => {
     assert.equal(features[1].properties.order, 0);
     assert.equal(features[1].properties.label, ''); // Unknown: no sign, no label
     // Zoomed in, only sites at the very same spot share a point
-    assert.equal(countFeatures([north, south, away], false, 5).features.length, 3);
+    assert.equal(countFeatures([north, south, away], false, { radius: 5 }).features.length, 3);
+    // Heavy vehicles' changes, where chosen: the north site's trucks are up most
+    const trucks = countFeatures([{ ...north, heavy: { week: 0.4, month: 0.3 } }, south], false, { vehicles: 'heavy' });
+    assert.equal(trucks.features[0].properties.label, '+40%');
     const [same] = countFeatures([north], false).features;
     assert.deepEqual([same.properties.sign, same.properties.label], ['', '']); // About the same: likewise
   });

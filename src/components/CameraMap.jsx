@@ -3,8 +3,8 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 
 import useLatest from '../hooks/useLatest';
-import { addLayers } from '../map/layers';
-import maplibregl, { mapControlsDark } from '../map/maplibre';
+import { addLayers, greyWater } from '../map/layers';
+import maplibregl, { mapControls, mapControlsDark } from '../map/maplibre';
 import { addSignHover, setSigns, startSignPaging } from '../map/signs';
 import { cameraPath, navigate } from '../router';
 import { groupCameraSites, warningFeatures } from '../utils';
@@ -43,6 +43,7 @@ export default function CameraMap({
     const map = new maplibregl.Map({
       container: container.current,
       style: styleUrl,
+      transformStyle: (previous, style) => greyWater(style, dark),
       center: centreRef.current,
       zoom: ZOOM,
       attributionControl: false,
@@ -133,7 +134,10 @@ export default function CameraMap({
   useEffect(() => (loaded ? startSignPaging(mapRef.current) : undefined), [loaded]);
 
   return (
-    <Paper sx={{ mt: 2, overflow: 'hidden', ...(dark && mapControlsDark) }}>
+    <Paper sx={{
+      mt: 2, overflow: 'hidden', ...mapControls, ...(dark && mapControlsDark),
+    }}
+    >
       <Box ref={container} sx={{ width: '100%', height: 240 }} />
     </Paper>
   );

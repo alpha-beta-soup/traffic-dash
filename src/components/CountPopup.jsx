@@ -5,8 +5,9 @@ import { alpha, useTheme } from '@mui/material/styles';
 
 import MapPopup from './MapPopup';
 import { seriesColour } from './VehicleTrend';
+import { VEHICLES } from '../../shared/vehicleClasses';
 import {
-  CHANGE_LABELS, changeColour, changeLevel, fetchJson, formatChange, siteChange,
+  CHANGE_LABELS, VEHICLE_CLASSES, changeColour, changeLevel, changesOf, fetchJson, formatChange, siteChange,
 } from '../utils';
 
 // Dates are days (UTC midnights), not moments
@@ -45,14 +46,15 @@ const weekends = days => days.reduce((runs, d, i) => {
 // (dashed), on shaded weekends: traffic dips at the weekend, more so than most real changes. Public
 // holidays are amber, and paler for one only the year before (moving ones, like Easter); they're
 // left out of the comparison.
-function DailyChart({ days, height: H }) {
+function DailyChart({ days, height: H, vehicles }) {
   const theme = useTheme();
-  const top = Math.max(1, ...days.flatMap(d => [d.total, d.lastYear]).filter(v => v !== null));
+  const [now, before] = VEHICLES[vehicles]; // A day's count of those vehicles, and a year before's
+  const top = Math.max(1, ...days.flatMap(d => [now(d), before(d)]).filter(v => v !== null));
   const x = i => (i / (days.length - 1)) * W;
   const y = v => H - (v / top) * H;
-  const path = key => days
-    .map((d, i) => (d[key] === null ? null : `${x(i)},${y(d[key])}`))
-    .reduce((parts, point, i) => (point === null ? parts : `${parts}${i && days[i - 1][key] !== null ? 'L' : 'M'}${point}`), '');
+  const path = count => days
+    .map((d, i) => (count(d) === null ? null : `${x(i)},${y(count(d))}`))
+    .reduce((parts, point, i) => (point === null ? parts : `${parts}${i && count(days[i - 1]) !== null ? 'L' : 'M'}${point}`), '');
   const half = W / (days.length - 1) / 2; // Half a day's width, either side of its point
   const dark = theme.palette.mode === 'dark';
   const band = (i, fill, title) => {
@@ -80,8 +82,8 @@ function DailyChart({ days, height: H }) {
         return null;
       })}
       <line x1={0} x2={W} y1={H} y2={H} stroke={theme.palette.divider} />
-      <path d={path('lastYear')} fill="none" stroke={theme.palette.text.secondary} strokeWidth={1.5} strokeDasharray="3 3" />
-      <path d={path('total')} fill="none" stroke={seriesColour(theme)} strokeWidth={1.25} strokeLinejoin="round" strokeLinecap="round" />
+      <path d={path(before)} fill="none" stroke={theme.palette.text.secondary} strokeWidth={1.5} strokeDasharray="3 3" />
+      <path d={path(now)} fill="none" stroke={seriesColour(theme)} strokeWidth={1.25} strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }
@@ -101,17 +103,20 @@ function useDays(site) {
 }
 
 // One site: its name and change on a line, the details under it, and its five weeks charted
-function CountRow({ site, chartHeight, showLatest }) {
+function CountRow({
+  site, chartHeight, showLatest, vehicles,
+}) {
   const theme = useTheme();
   const days = useDays(site);
-  const change = siteChange(site);
+  const change = siteChange(site, vehicles);
+  const { week, month } = changesOf(site, vehicles);
   const level = changeLevel(change);
-  const average = site.aadt.findLast(v => v);
+  const average = vehicles === 'all' && site.aadt.findLast(v => v); // Of all vehicles
   // The change in bold is the week's (as on the map), or the four weeks' without one; the four
   // weeks' also goes under the week's, steadier
-  const headline = site.week !== null ? `Week ${formatChange(site.week)}` : site.month !== null && `4 weeks ${formatChange(site.month)}`;
+  const headline = week !== null ? `Week ${formatChange(week)}` : month !== null && `4 weeks ${formatChange(month)}`;
   const details = [
-    site.week !== null && site.month !== null && `4 weeks ${formatChange(site.month)}`,
+    week !== null && month !== null && `4 weeks ${formatChange(month)}`,
     change === null && 'Too few days to compare',
     showLatest && `to ${day(site.latest)}`,
     average && `${number.format(average)} a day last year`,
@@ -130,7 +135,7 @@ function CountRow({ site, chartHeight, showLatest }) {
       <Typography variant="caption" component="p" sx={{ ...TIGHT, color: 'text.secondary', ml: 2, mb: 0.25 }}>
         {details.join(' · ')}
       </Typography>
-      {days ? <DailyChart days={days} height={chartHeight} /> : <Box sx={{ height: chartHeight }} />}
+      {days ? <DailyChart days={days} height={chartHeight} vehicles={vehicles} /> : <Box sx={{ height: chartHeight }} />}
     </Box>
   );
 }
@@ -161,18 +166,18 @@ function ChartKey() {
 
 // The counting sites at a place, compactly: what they're compared with and the chart's key once,
 // each site's name, change and chart (smaller, the more there are, to fit a popup)
-export function CountList({ sites }) {
+export function CountList({ sites, vehicles = 'all' }) {
   const latest = new Set(sites.map(site => site.latest));
   const shared = latest.size === 1 ? sites[0].latest : null;
   const caption = { ...TIGHT, color: 'text.secondary', display: 'block' };
   return (
     <Box>
       <Typography variant="caption" sx={{ ...caption, mb: 0.75 }}>
-        Against the same days a year before{shared && `, to ${day(shared)}`}
+        {VEHICLE_CLASSES[vehicles]} against the same days a year before{shared && `, to ${day(shared)}`}
       </Typography>
       {sites.map((site, i) => (
         <Box key={site.ref} sx={{ mt: i ? 1 : 0 }}>
-          <CountRow site={site} chartHeight={sites.length > 2 ? 30 : 44} showLatest={!shared} />
+          <CountRow site={site} chartHeight={sites.length > 2 ? 30 : 44} showLatest={!shared} vehicles={vehicles} />
         </Box>
       ))}
       <Typography variant="caption" sx={{ ...caption, mt: 0.75 }}>
@@ -184,10 +189,12 @@ export function CountList({ sites }) {
 }
 
 // The counting sites at a hovered place (often both directions of a road, or an interchange's ramps)
-export default function CountPopup({ map, lngLat, sites }) {
+export default function CountPopup({
+  map, lngLat, sites, vehicles,
+}) {
   return (
     <MapPopup map={map} lngLat={lngLat} sx={{ p: 1.25, width: 340 }}>
-      <CountList sites={sites} />
+      <CountList sites={sites} vehicles={vehicles} />
     </MapPopup>
   );
 }

@@ -1,23 +1,40 @@
 import Box from '@mui/material/Box';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { useTheme } from '@mui/material/styles';
 
 import { LEGEND_SX } from './CongestionLegend';
 import {
-  CHANGE_KEY, CHANGE_SIGNS, changeColour, countedTo,
+  CHANGE_KEY, CHANGE_SIGNS, VEHICLE_CLASSES, changeColour, countedTo,
 } from '../utils';
 
 const dayFormat = new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 // Names each colour of the traffic counts, and says how old the counts are: they come in days late.
 // Each colour is a button that shows or hides those places (`hidden`, toggled by `onToggle(level)`),
-// e.g. to see only the roads busier than a year before.
-export default function CountsLegend({ sites, hidden, onToggle }) {
+// e.g. to see only the roads busier than a year before. Above them, which vehicles are compared
+// (`vehicles`, chosen with `onVehicles`): all, or heavy or light ones, e.g. to see freight detours.
+export default function CountsLegend({
+  sites, hidden, onToggle, vehicles, onVehicles,
+}) {
   const dark = useTheme().palette.mode === 'dark';
   const counted = countedTo(sites);
   const day = iso => dayFormat.format(new Date(iso));
   return (
     <Box sx={LEGEND_SX} aria-label="Traffic counts key">
       <Box sx={{ fontWeight: 500 }}>Traffic against a year before</Box>
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={vehicles}
+        onChange={(e, value) => value && onVehicles(value)} // Always one chosen
+        aria-label="Vehicles compared"
+        sx={{ my: 0.5, '& .MuiToggleButton-root': { py: 0, px: 0.75, fontSize: '0.6875rem', textTransform: 'none', lineHeight: 1.6 } }}
+      >
+        {Object.entries(VEHICLE_CLASSES).map(([value, label]) => (
+          <ToggleButton key={value} value={value} aria-label={label}>{label.replace(' vehicles', '')}</ToggleButton>
+        ))}
+      </ToggleButtonGroup>
       {counted && (
         <Box sx={{ color: 'text.secondary' }}>
           Counted to {day(counted.half)}{counted.newest !== counted.half && `, some to ${day(counted.newest)}`}
