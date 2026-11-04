@@ -335,17 +335,9 @@ export default function Map({
     }
   }, [minimised]);
 
-  // The camera a phone's showing, with the traffic its congestion was judged by
-  useEffect(() => {
-    if (!loaded) return;
-    const segments = selectedCamera ? congestion.get(selectedCamera.id)?.segments ?? [] : [];
-    mapRef.current.getSource('selected')?.setData({
-      type: 'FeatureCollection',
-      features: segments.map(coordinates => ({ type: 'Feature', geometry: { type: 'LineString', coordinates }, properties: {} })),
-    });
-  }, [loaded, selectedCamera, congestion]);
-  // …marked with a pulse (whether or not the cameras are shown) in its congestion's colour, as its
-  // card's border is: an element over the map, animated by CSS, so the map needn't redraw for it
+  // The camera a phone's showing, marked with a pulse (whether or not the cameras are shown) in its
+  // congestion's colour, as its card's border is: an element over the map, animated by CSS, so the
+  // map needn't redraw for it
   const selectedAt = selectedCamera && [selectedCamera.lon, selectedCamera.lat].join();
   const pulse = useRef(null);
   useEffect(() => {

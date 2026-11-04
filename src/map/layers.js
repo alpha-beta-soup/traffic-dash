@@ -167,9 +167,6 @@ export const greyWater = (style, dark) => {
 };
 
 // weather: whether the server has weather (an OpenWeatherMap key), for the rain layer
-// What a camera's congestion was matched to
-const SELECTED = '#e040fb';
-
 export const addLayers = (map, traffic, dark, weather = false) => {
   const belowLabels = firstLabelLayer(map);
   const belowBridges = firstBridgeLayer(map) ?? belowLabels;
@@ -209,7 +206,6 @@ export const addLayers = (map, traffic, dark, weather = false) => {
   map.addSource('cameras', { type: 'geojson', data: EMPTY });
   map.addSource('signs', { type: 'geojson', data: EMPTY });
   map.addSource('matched', { type: 'geojson', data: EMPTY });
-  map.addSource('selected', { type: 'geojson', data: EMPTY }); // The segments of the congestion of the camera a phone's showing
   map.addSource('event-roads', { type: 'geojson', data: EMPTY }); // Road segments events run along
   map.addSource('event-fallback', { type: 'geojson', data: EMPTY }); // Events with no road to snap to
   map.addSource('event-icons', { type: 'geojson', data: EMPTY }); // One point per event, for its icon
@@ -298,19 +294,18 @@ export const addLayers = (map, traffic, dark, weather = false) => {
         dark ? 'rgba(255, 255, 255, 0.55)' : 'rgba(20, 24, 28, 0.5)'],
     },
   }, belowLabels);
-  const matched = {
+  map.addLayer({
+    id: 'matched',
     type: 'line',
+    source: 'matched',
     layout: { 'line-cap': 'round' },
     paint: {
-      'line-color': SELECTED,
+      'line-color': '#e040fb',
       'line-width': ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 8],
       'line-offset': ['interpolate', ['linear'], ['zoom'], 10, -2, 16, -5],
       'line-opacity': 0.6,
     },
-  };
-  // Under the traffic line, as a glow around it
-  map.addLayer({ id: 'matched', source: 'matched', ...matched }, traffic ? 'traffic' : undefined);
-  map.addLayer({ id: 'selected-segments', source: 'selected', ...matched }, traffic ? 'traffic' : undefined);
+  }, traffic ? 'traffic' : undefined); // Under the traffic line, as a glow around it
   map.addLayer({
     id: 'signs',
     type: 'symbol',
