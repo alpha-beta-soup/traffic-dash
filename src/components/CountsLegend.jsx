@@ -82,7 +82,6 @@ export default function CountsLegend({
           );
         })}
       </Box>
-      <Box sx={{ color: 'text.secondary', fontSize: '0.6875rem' }}>{touch ? 'Tap' : 'Click'} to show or hide</Box>
     </MapLegend>
   );
 }

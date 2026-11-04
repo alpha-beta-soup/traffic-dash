@@ -216,9 +216,6 @@ function PlaybackControls({ player, frames, time }) {
         valueLabelFormat={value => clockFormat.format(frames[value].time)}
         aria-label="Saved frames"
       />
-      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-        Space plays or pauses; ← and → step a frame. Click a high-resolution image to see it full size.
-      </Typography>
     </Box>
   );
 }
