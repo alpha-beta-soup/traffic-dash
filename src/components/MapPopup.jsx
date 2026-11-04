@@ -58,11 +58,17 @@ export default function MapPopup({
           animation: 'rise 180ms ease-out',
         }}
       >
+        {/* A strip of its own along the top, so the close button covers nothing; what scrolls
+            goes under it (its background the sheet's own, raised surface and all) */}
         {onClose && (
-          <Box sx={{ position: 'sticky', top: 0, height: 0, display: 'flex', justifyContent: 'flex-end', zIndex: 1 }}>
-            <IconButton aria-label="Close" onClick={onClose} sx={{ mt: -0.5, mr: -0.5, width: 40, height: 40, fontSize: 20, bgcolor: 'background.paper', '&:hover': { bgcolor: 'background.paper' } }}>
-              ✕
-            </IconButton>
+          <Box
+            sx={{
+              position: 'sticky', top: 0, zIndex: 1, height: 36, mb: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+              bgcolor: 'inherit', backgroundImage: 'inherit',
+            }}
+          >
+            <Box aria-hidden="true" sx={{ position: 'absolute', left: '50%', top: 6, width: 36, height: 4, ml: '-18px', borderRadius: 2, bgcolor: 'divider' }} />
+            <IconButton aria-label="Close" onClick={onClose} sx={{ mr: -0.5, width: 36, height: 36, fontSize: 18 }}>✕</IconButton>
           </Box>
         )}
         {children}
