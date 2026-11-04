@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
@@ -14,7 +13,7 @@ import CameraPlaceholder from './CameraPlaceholder';
 import CameraWeather from './CameraWeather';
 import FadeImage from './FadeImage';
 import { warningChipColours } from './WarningDetails';
-import ToggleButton from './ToggleButton';
+import IconAction from './IconAction';
 import { VehicleSparkline } from './VehicleTrend';
 import useLiveImage from '../hooks/useLiveImage';
 import useNow from '../hooks/useNow';
@@ -180,13 +179,11 @@ export default function Camera({
         {config.vehicles && <VehicleSparkline counts={vehicleCounts} />}
       </CardContent>
       {/* Buttons shrink to their labels, and wrap rather than overflow on narrow cards */}
-      <CardActions disableSpacing sx={{ flexWrap: 'wrap', gap: 0.5, '& .MuiButton-root': { minWidth: 0, px: 1 } }}>
-        <Button size="small" onClick={share}>Share</Button>
-        <Button size="small" onClick={() => onFocus(camera)}>Focus</Button>
-        <ToggleButton on={looping && !unavailable} onClick={() => setLooping(on => !on)} disabled={unavailable}>
-          Loop
-        </ToggleButton>
-        <ToggleButton on={pinned} onClick={() => onPin(id)}>Pin</ToggleButton>
+      <CardActions disableSpacing sx={{ gap: 0.5 }}>
+        <IconAction icon="share" label="Share" onClick={share} />
+        <IconAction icon="focus" label="Show on the map" onClick={() => onFocus(camera)} />
+        <IconAction icon="loop" label="Loop the last 30 minutes" pressed={looping && !unavailable} onClick={() => setLooping(on => !on)} disabled={unavailable} />
+        <IconAction icon={pinned ? 'pinned' : 'pin'} label="Pin" pressed={pinned} onClick={() => onPin(id)} />
       </CardActions>
       <Snackbar
         open={!!notice}

@@ -2,11 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
-import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Slider from '@mui/material/Slider';
 import Snackbar from '@mui/material/Snackbar';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
 import Arrow from '../components/Arrow';
@@ -14,13 +12,12 @@ import { CameraTime } from '../components/Camera';
 import CameraMap from '../components/CameraMap';
 import CameraPlaceholder from '../components/CameraPlaceholder';
 import CameraWeather from '../components/CameraWeather';
-import Icon from '../components/Icon';
+import IconAction from '../components/IconAction';
 import ErrorBoundary from '../components/ErrorBoundary';
 import EventDetails, { impactOf } from '../components/EventDetails';
 import LedSign from '../components/LedSign';
 import NearbyCounts from '../components/NearbyCounts';
 import WarningDetails from '../components/WarningDetails';
-import ToggleButton from '../components/ToggleButton';
 import VehicleTrend from '../components/VehicleTrend';
 import useLiveImage from '../hooks/useLiveImage';
 import { useLoopFrames } from '../hooks/useLoop';
@@ -207,19 +204,6 @@ function LargeImage({
   );
 }
 
-// One of the player's buttons: an icon (see Icon), named by `label` (as its tooltip too)
-function PlayerButton({
-  icon, label, onClick, pressed, sx,
-}) {
-  return (
-    <Tooltip title={label}>
-      <IconButton color="primary" onClick={onClick} aria-label={label} aria-pressed={pressed} sx={sx}>
-        <Icon name={icon} />
-      </IconButton>
-    </Tooltip>
-  );
-}
-
 // Live, play/pause, step and a scrubber across the camera's saved history
 function PlaybackControls({ player, frames }) {
   const { mode, index, count } = player;
@@ -234,12 +218,12 @@ function PlaybackControls({ player, frames }) {
     <Box sx={{ mt: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         {/* Red while live, as a broadcast's light is */}
-        <PlayerButton icon="live" label="Live" onClick={player.live} pressed={mode === 'live'} sx={{ color: mode === 'live' ? 'error.main' : 'text.secondary' }} />
-        <PlayerButton icon="back" label="Previous frame" onClick={() => player.step(-1)} />
+        <IconAction icon="live" label="Live" onClick={player.live} pressed={mode === 'live'} sx={{ color: mode === 'live' ? 'error.main' : 'text.secondary' }} />
+        <IconAction icon="back" label="Previous frame" onClick={() => player.step(-1)} />
         {mode === 'playing'
-          ? <PlayerButton icon="pause" label="Pause" onClick={player.pause} />
-          : <PlayerButton icon="play" label="Play" onClick={player.play} />}
-        <PlayerButton icon="forward" label="Next frame" onClick={() => player.step(1)} />
+          ? <IconAction icon="pause" label="Pause" onClick={player.pause} />
+          : <IconAction icon="play" label="Play" onClick={player.play} />}
+        <IconAction icon="forward" label="Next frame" onClick={() => player.step(1)} />
       </Box>
       <Slider
         size="small"
@@ -514,9 +498,9 @@ function CameraView({
               </Typography>
             )}
             <CameraWeather data={weather} alwaysShowWind />
-            <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
-              <ToggleButton on={pinned} onClick={() => onPin(id)} offVariant="outlined">Pin</ToggleButton>
-              <Button size="small" variant="outlined" onClick={share}>Share</Button>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1.5, flexWrap: 'wrap' }}>
+              <IconAction icon={pinned ? 'pinned' : 'pin'} label="Pin" pressed={pinned} onClick={() => onPin(id)} />
+              <IconAction icon="share" label="Share" onClick={share} />
               <Button size="small" href={imageUrl} target="_blank" rel="noopener">NZTA image</Button>
             </Box>
           </Paper>
