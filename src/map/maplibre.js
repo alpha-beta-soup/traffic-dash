@@ -4,6 +4,8 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { alpha } from '@mui/material/styles';
 import { omProtocol } from '@openmeteo/weather-map-layer';
 
+import { iconImage } from '../components/Icon';
+
 // maplibre-gl 6 looks for its worker next to its own module, which isn't there once
 // Vite has pre-bundled (dev) or bundled (build) it; so point it at the real file
 maplibregl.setWorkerUrl(workerUrl);
@@ -12,11 +14,6 @@ maplibregl.setWorkerUrl(workerUrl);
 maplibregl.addProtocol('om', omProtocol);
 
 export default maplibregl;
-
-// Material's "info" icon (outlined), for the button that opens the map's credits on a narrow map
-const INFO = `url("data:image/svg+xml,${encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 28 28" fill="rgba(0,0,0,0.75)"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>',
-)}")`;
 
 // MapLibre's own controls, in either theme:
 // - the zoom and compass buttons like the app's buttons over the map (MUI's small contained ones):
@@ -38,7 +35,12 @@ export const mapControls = {
   '& .maplibregl-ctrl-group .maplibregl-ctrl-icon': {
     filter: theme => (theme.palette.primary.contrastText === '#fff' ? 'brightness(0) invert(1)' : 'brightness(0)'),
   },
-  '& .maplibregl-ctrl-attrib-button': { backgroundImage: INFO },
+  // Material's icons in place of MapLibre's: zoom, the compass (which MapLibre turns with the
+  // map), and the credits' ⓘ on a narrow map (in a smaller box, as MapLibre's own is drawn)
+  '& .maplibregl-ctrl button.maplibregl-ctrl-zoom-in .maplibregl-ctrl-icon': { backgroundImage: iconImage('zoomIn'), backgroundSize: 20 },
+  '& .maplibregl-ctrl button.maplibregl-ctrl-zoom-out .maplibregl-ctrl-icon': { backgroundImage: iconImage('zoomOut'), backgroundSize: 20 },
+  '& .maplibregl-ctrl button.maplibregl-ctrl-compass .maplibregl-ctrl-icon': { backgroundImage: iconImage('north'), backgroundSize: 20 },
+  '& .maplibregl-ctrl-attrib-button': { backgroundImage: iconImage('info', 'rgba(0,0,0,0.75)'), backgroundSize: 20, backgroundPosition: 'center', backgroundRepeat: 'no-repeat' },
   '& .maplibregl-ctrl.maplibregl-ctrl-scale': { lineHeight: '12px', px: '4px', borderWidth: '0 1.5px 1.5px' },
 };
 

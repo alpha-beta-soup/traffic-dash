@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+
+import MapButton from './MapButton';
 
 export const DEFAULT_LAYERS = Object.freeze({
   cameras: true, labels: true, signs: true, events: true, warnings: true, rain: false, wind: false, counts: false, traffic: true,
@@ -26,16 +27,13 @@ export default function LayersMenu({ layers, onChange, traffic, weather }) {
   ];
   return (
     <>
-      <Button
-        variant="contained"
-        size="small"
+      <MapButton
+        icon="layers"
+        label="Layers"
         aria-haspopup="menu"
         aria-expanded={!!anchor}
         onClick={e => setAnchor(e.currentTarget)}
-        sx={{ opacity: 0.85 }}
-      >
-        Layers
-      </Button>
+      />
       <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}>
         {options.map(([key, label]) => (
           <MenuItem

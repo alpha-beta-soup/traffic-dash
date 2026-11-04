@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Snackbar from '@mui/material/Snackbar';
 
@@ -10,6 +9,7 @@ import CountPopup from './CountPopup';
 import CountsLegend from './CountsLegend';
 import EventPopup from './EventPopup';
 import LayersMenu from './LayersMenu';
+import MapButton from './MapButton';
 import MapPopup from './MapPopup';
 import SitePopup, { DIRECTION_ORDER } from './SitePopup';
 import WarningDetails from './WarningDetails';
@@ -475,12 +475,10 @@ export default function Map({
         </Box>
       )}
       <Box sx={{ position: 'absolute', zIndex: 2, top: 10, right: minimised || TOUCH ? 10 : 50, display: 'flex', gap: 0.5 }}>
-        {!minimised && <Button variant="contained" size="small" onClick={share} sx={{ opacity: 0.85 }}>Share</Button>}
+        {!minimised && <MapButton icon="share" label="Share this map" onClick={share} />}
         {!minimised && <LayersMenu layers={layers} onChange={onLayersChange} traffic={traffic} weather={weather} />}
         {onToggleMinimised && ( // Not on a phone
-          <Button variant="contained" size="small" onClick={onToggleMinimised} sx={{ opacity: 0.85 }}>
-            {minimised ? 'Expand' : 'Minimise'}
-          </Button>
+          <MapButton icon={minimised ? 'enlarge' : 'minimise'} label={minimised ? 'Expand the map' : 'Minimise the map'} onClick={onToggleMinimised} />
         )}
       </Box>
       <Box
