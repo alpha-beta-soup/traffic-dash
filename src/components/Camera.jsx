@@ -41,10 +41,11 @@ const overlayChip = {
   height: 20,
 };
 
-export function CameraTime({ time }) {
+// How old the image shown is, on it, after `clock` if given (e.g. "4:06 pm · 7 minutes ago")
+export function CameraTime({ time, clock }) {
   const now = useNow(1000);
   if (!time) return null;
-  return <Chip size="small" label={timeAgo(time, now)} sx={overlayChip} />;
+  return <Chip size="small" label={[clock, timeAgo(time, now)].filter(Boolean).join(' · ')} sx={overlayChip} />;
 }
 
 // The most serious road event near the camera, e.g. "Road closed nearby", with the details on hover

@@ -7,6 +7,7 @@ import Slider from '@mui/material/Slider';
 import Snackbar from '@mui/material/Snackbar';
 import Typography from '@mui/material/Typography';
 
+import { CameraTime } from '../components/Camera';
 import CameraMap from '../components/CameraMap';
 import CameraPlaceholder from '../components/CameraPlaceholder';
 import CameraWeather from '../components/CameraWeather';
@@ -19,7 +20,6 @@ import ToggleButton from '../components/ToggleButton';
 import VehicleTrend from '../components/VehicleTrend';
 import useLiveImage from '../hooks/useLiveImage';
 import { useLoopFrames } from '../hooks/useLoop';
-import useNow from '../hooks/useNow';
 import { useTouch } from '../hooks/useScreen';
 import useVehicleCounts from '../hooks/useVehicleCounts';
 import usePlayer from '../hooks/usePlayer';
@@ -27,7 +27,7 @@ import useWeather from '../hooks/useWeather';
 import { TextLink, cameraPath, navigate } from '../router';
 import { descriptionReplace, eventImpacts } from '../consts';
 import {
-  groupCameraSites, nearbyEvents, nearestCameras, nearestTo, replaceAll, resolutionLabel, timeAgo, warningColour,
+  groupCameraSites, nearbyEvents, nearestCameras, nearestTo, replaceAll, resolutionLabel, warningColour,
   warningsAt,
 } from '../utils';
 
@@ -60,7 +60,7 @@ const clampAxis = (offset, natural, shown) => (natural <= shown
 // stays put through playback. On a touchscreen, not zoomed in, a swipe steps a frame
 // (`onStep(±1)`): left to the next, right to the one before, as through photos.
 function LargeImage({
-  src, alt, stale, zoom, onZoom, onStep,
+  src, alt, time, stale, zoom, onZoom, onStep,
 }) {
   const [natural, setNatural] = useState(null);
   const touch = useTouch();
@@ -194,14 +194,17 @@ function LargeImage({
             </Typography>
           </>
         )}
+        {/* As on the cards; with the time of day, which tells frames a few seconds apart */}
+        <Box sx={{ position: 'absolute', top: 6, right: 6, pointerEvents: 'none' }}>
+          {time && <CameraTime time={time} clock={clockFormat.format(time)} />}
+        </Box>
       </Box>
     </Box>
   );
 }
 
 // Live, play/pause, step and a scrubber across the camera's saved history
-function PlaybackControls({ player, frames, time }) {
-  const now = useNow(1000);
+function PlaybackControls({ player, frames }) {
   const { mode, index, count } = player;
   if (count < 2) {
     return (
@@ -219,9 +222,6 @@ function PlaybackControls({ player, frames, time }) {
           {mode === 'playing' ? 'Pause' : 'Play'}
         </Button>
         <Button size="small" onClick={() => player.step(1)} aria-label="Next frame">Frame ›</Button>
-        <Typography variant="body2" sx={{ color: 'text.secondary', ml: 'auto' }}>
-          {time && `${clockFormat.format(time)} · ${timeAgo(time, now)}`}
-        </Typography>
       </Box>
       <Slider
         size="small"
@@ -472,8 +472,8 @@ function CameraView({
             </Box>
           ) : (
             <>
-              <LargeImage src={src} alt={name} stale={stale} zoom={zoom} onZoom={setZoom} onStep={player.step} />
-              <PlaybackControls player={player} frames={frames} time={time} />
+              <LargeImage src={src} alt={name} time={time} stale={stale} zoom={zoom} onZoom={setZoom} onStep={player.step} />
+              <PlaybackControls player={player} frames={frames} />
             </>
           )}
         </Grid>
