@@ -83,7 +83,8 @@ export default function AboutDialog({ open, onClose }) {
         <Heading>Your settings</Heading>
         <Typography variant="body2">
           What you choose (the map’s view and layers, pinned cameras, the theme) is kept only in this browser. There
-          are no accounts and no tracking.
+          are no accounts and no tracking. If you show where you are on the map, your location stays in your
+          browser too: it’s never sent anywhere.
         </Typography>
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between', pl: 3 }}>

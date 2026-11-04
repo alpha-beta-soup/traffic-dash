@@ -111,6 +111,11 @@ export default function Map({
     // On a touchscreen, pinching zooms, so only the compass: shown once the map's turned or
     // tilted, to put it back
     map.addControl(new maplibregl.NavigationControl({ showZoom: !TOUCH, visualizePitch: true }), 'top-right');
+    // Where you are, if you ask (the browser asks your permission): a dot, with how sure it is,
+    // which the map follows until you move it. Your location stays in your browser.
+    map.addControl(new maplibregl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true }, trackUserLocation: true,
+    }), 'top-right');
     if (TOUCH) {
       const showCompass = () => map.getContainer().classList
         .toggle('turned', Math.round(map.getBearing()) !== 0 || Math.round(map.getPitch()) !== 0);
@@ -448,10 +453,10 @@ export default function Map({
         // The zoom controls go too: nothing on a minimised map responds. So does the attribution,
         // which would cover it; hidden rather than removed, as it would come back above the scale.
         '& .maplibregl-ctrl-top-right, & .maplibregl-ctrl-attrib': minimised ? { display: 'none' } : {},
-        // The compass alone, below the buttons, while the map's turned
+        // Below the buttons: your location, and the compass while the map's turned
         ...(TOUCH && {
           '& .maplibregl-ctrl-top-right': { top: 40 },
-          '& .maplibregl-map:not(.turned) .maplibregl-ctrl-top-right': { display: 'none' },
+          '& .maplibregl-map:not(.turned) .maplibregl-ctrl-group:has(.maplibregl-ctrl-compass)': { display: 'none' },
         }),
         ...mapControls,
         ...(dark && mapControlsDark),

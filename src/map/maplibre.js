@@ -40,6 +40,13 @@ export const mapControls = {
   '& .maplibregl-ctrl button.maplibregl-ctrl-zoom-in .maplibregl-ctrl-icon': { backgroundImage: iconImage('zoomIn'), backgroundSize: 20 },
   '& .maplibregl-ctrl button.maplibregl-ctrl-zoom-out .maplibregl-ctrl-icon': { backgroundImage: iconImage('zoomOut'), backgroundSize: 20 },
   '& .maplibregl-ctrl button.maplibregl-ctrl-compass .maplibregl-ctrl-icon': { backgroundImage: iconImage('north'), backgroundSize: 20 },
+  // Showing where you are: a crosshair (Material's location_searching) until it's following you,
+  // then with its centre filled (my_location, as the cards' Focus); dimmed when it can't
+  '& .maplibregl-ctrl button.maplibregl-ctrl-geolocate .maplibregl-ctrl-icon': { backgroundImage: iconImage('locate'), backgroundSize: 20 },
+  '& .maplibregl-ctrl button.maplibregl-ctrl-geolocate.maplibregl-ctrl-geolocate-active .maplibregl-ctrl-icon': { backgroundImage: iconImage('focus') },
+  '& .maplibregl-ctrl button.maplibregl-ctrl-geolocate:is(:disabled, .maplibregl-ctrl-geolocate-active-error, .maplibregl-ctrl-geolocate-background-error) .maplibregl-ctrl-icon': {
+    backgroundImage: iconImage('locate'), opacity: 0.5,
+  },
   '& .maplibregl-ctrl-attrib-button': { backgroundImage: iconImage('info', 'rgba(0,0,0,0.75)'), backgroundSize: 20, backgroundPosition: 'center', backgroundRepeat: 'no-repeat' },
   // Folded to its ⓘ (a narrow map), the credits' button sits beside the scale, in the corner,
   // rather than under it; open in full, the credits go below it again
