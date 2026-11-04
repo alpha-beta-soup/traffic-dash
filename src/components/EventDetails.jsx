@@ -3,7 +3,7 @@ import Typography from '@mui/material/Typography';
 
 import { eventImpacts } from '../consts';
 
-export const timeFormat = new Intl.DateTimeFormat('en-NZ', {
+export const timeFormat = new Intl.DateTimeFormat(undefined, {
   weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Auckland',
 });
 

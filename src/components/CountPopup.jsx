@@ -12,9 +12,9 @@ import {
 } from '../utils';
 
 // Dates are days (UTC midnights), not moments
-const dayFormat = new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const dayFormat = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' });
 const day = iso => dayFormat.format(new Date(iso));
-const number = new Intl.NumberFormat('en-NZ');
+const number = new Intl.NumberFormat();
 
 // Each site's daily counts, fetched once for each latest day it has
 const details = new Map();

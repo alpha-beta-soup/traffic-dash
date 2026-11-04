@@ -3,7 +3,7 @@ import Alert from '@mui/material/Alert';
 import useNow from '../hooks/useNow';
 import { staleFeeds } from '../utils';
 
-const timeFormat = new Intl.DateTimeFormat('en-NZ', { hour: 'numeric', minute: '2-digit' });
+const timeFormat = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Auckland' });
 
 // "a, b and c"
 const list = names => (names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]);

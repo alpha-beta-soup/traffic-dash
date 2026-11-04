@@ -25,15 +25,14 @@ import useNow from '../hooks/useNow';
 import { usePhone } from '../hooks/useScreen';
 import { version } from '../../package.json';
 
-const clockFormat = new Intl.DateTimeFormat('en-NZ', {
-  weekday: 'long',
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-  second: '2-digit',
-  timeZone: 'Pacific/Auckland',
+// The clock (on a wide screen, e.g. a dashboard left up on a wall), in New Zealand's time, as the
+// viewer's browser writes dates and times (its language, 12- or 24-hour, the day's order): the
+// day spelt out, and to the minute, not ticking seconds. Seen from another time zone, it says
+// it's New Zealand's. e.g. "Wednesday, 4 November at 5:17 pm"
+const NZ = 'Pacific/Auckland';
+const clockFormat = new Intl.DateTimeFormat(undefined, {
+  weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: NZ,
+  ...(Intl.DateTimeFormat().resolvedOptions().timeZone !== NZ && { timeZoneName: 'short' }),
 });
 
 const CONGESTION_FILTERS = [
@@ -135,14 +134,14 @@ export default function AppBar(props) {
 function WideBar({
   loopAll, onToggleLoopAll, congestionFilter, onCongestionFilter, themeSetting, mode, onThemeSetting, onBack, onAbout,
 }) {
-  const now = useNow(1000);
+  const now = useNow(5000); // To the minute, a few seconds late at most
   return (
     <MuiAppBar position="static" color="default">
       <Toolbar sx={{ gap: 2, flexWrap: 'wrap', py: 1 }}>
         <Typography variant="h6" noWrap>
           NZ Traffic Dashboard
         </Typography>
-        <Typography variant="h6" noWrap sx={{ flex: 1, textAlign: 'center', display: { xs: 'none', lg: 'block' } }}>
+        <Typography variant="subtitle1" noWrap sx={{ flex: 1, textAlign: 'center', color: 'text.secondary', display: { xs: 'none', lg: 'block' } }}>
           {clockFormat.format(now)}
         </Typography>
         <Box sx={{ ml: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>

@@ -10,7 +10,7 @@ import {
   CHANGE_KEY, CHANGE_SIGNS, VEHICLE_CLASSES, changeColour, countedTo,
 } from '../utils';
 
-const dayFormat = new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const dayFormat = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 // Names each colour of the traffic counts, and says how old the counts are: they come in days late.
 // Each colour is a button that shows or hides those places (`hidden`, toggled by `onToggle(level)`),

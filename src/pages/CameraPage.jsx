@@ -38,7 +38,7 @@ const MAX_SIGNS = 4;
 const VEHICLE_HOURS = 3; // Of vehicle counts charted
 const DASHBOARD_ZOOM = 11; // The dashboard map's zoom when it has no saved view
 
-const clockFormat = new Intl.DateTimeFormat('en-NZ', {
+const clockFormat = new Intl.DateTimeFormat(undefined, {
   hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Auckland',
 });
 

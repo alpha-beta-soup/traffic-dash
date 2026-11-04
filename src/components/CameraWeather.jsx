@@ -13,12 +13,8 @@ const warningText = theme => theme.palette.warning[theme.palette.mode === 'dark'
 // Its wind icons already are.
 const SKY = { verticalAlign: '-0.15em' };
 
-const timeFormat = new Intl.DateTimeFormat('en-NZ', {
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-  timeZone: 'Pacific/Auckland',
-});
+// Sunrise or sunset, in the camera's (New Zealand's) time, 12- or 24-hour as the browser does
+const timeFormat = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Auckland' });
 
 // A camera's weather: its sky (and the sun's time, near sunrise or sunset), temperature and
 // wind. alwaysShowWind: show the wind even when it's light (otherwise only when windy). `chip`:

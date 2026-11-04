@@ -9,7 +9,7 @@ export const TREND_WINDOW = 10 * 60_000; // ms: the rolling mean's span (see uti
 // The one series colour, validated against each mode's surface
 export const seriesColour = theme => (theme.palette.mode === 'dark' ? '#3987e5' : '#2a78d6');
 
-const clock = new Intl.DateTimeFormat('en-NZ', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Auckland' });
+const clock = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Auckland' });
 
 // The latest point with a trend, and whether it's recent enough to stand for now
 const latestTrend = (points) => {
