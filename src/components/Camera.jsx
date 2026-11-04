@@ -7,11 +7,11 @@ import CardMedia from '@mui/material/CardMedia';
 import Chip from '@mui/material/Chip';
 import Snackbar from '@mui/material/Snackbar';
 import Typography from '@mui/material/Typography';
-import { alpha } from '@mui/material/styles';
 
 import CameraPlaceholder from './CameraPlaceholder';
 import CameraWeather from './CameraWeather';
 import FadeImage from './FadeImage';
+import overlayChip from './overlayChip';
 import { warningChipColours } from './WarningDetails';
 import Icon from './Icon';
 import IconAction from './IconAction';
@@ -35,12 +35,6 @@ import {
 import loadingImage from '../../data/hatchback_loading.gif';
 
 const VEHICLE_HOURS = 0.5; // The sparkline's span
-
-const overlayChip = {
-  bgcolor: theme => alpha(theme.palette.background.paper, 0.85),
-  typography: 'caption',
-  height: 20,
-};
 
 // How old the image shown is, on it, after `clock` if given (e.g. "4:06 pm · 7 minutes ago")
 export function CameraTime({ time, clock }) {
@@ -170,6 +164,10 @@ export default function Camera({
           </Box>
         )}
         {nearbyEvents.length > 0 && <NearbyEvent events={nearbyEvents} />}
+        {/* Bottom right, across from a road event */}
+        <Box sx={{ position: 'absolute', bottom: 14, right: 6 }}>
+          {!placeholder && <CameraWeather data={weather} chip />}
+        </Box>
       </Box>
       <CardContent sx={{ flexGrow: 1 }}>
         {/* The camera's page, as the image opens: with a chevron, as Material marks a way to more,
@@ -189,7 +187,6 @@ export default function Camera({
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           {replaceAll(description, descriptionReplace)}
         </Typography>
-        <CameraWeather data={weather} />
         {config.vehicles && <VehicleSparkline counts={vehicleCounts} />}
       </CardContent>
       {/* Buttons shrink to their labels, and wrap rather than overflow on narrow cards */}

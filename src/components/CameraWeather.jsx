@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
+import overlayChip from './overlayChip';
 import { describeWind, getWeatherIcon, sunEvent } from '../utils';
 
 const COLD_TEMP = 3;
@@ -19,9 +20,10 @@ const timeFormat = new Intl.DateTimeFormat('en-NZ', {
   timeZone: 'Pacific/Auckland',
 });
 
-// alwaysShowWind: show the wind even when it's light (otherwise only when windy, to keep the
-// cards short)
-export default function CameraWeather({ data: wx, alwaysShowWind = false }) {
+// A camera's weather: its sky (and the sun's time, near sunrise or sunset), temperature and
+// wind. alwaysShowWind: show the wind even when it's light (otherwise only when windy). `chip`:
+// as a chip over the camera's image (the cards'), shorter: the wind without its direction's name.
+export default function CameraWeather({ data: wx, alwaysShowWind = false, chip = false }) {
   if (!wx) return null;
   const now = Date.now() / 1000;
   const nightTime = now < wx.sys.sunrise || now > wx.sys.sunset;
@@ -29,8 +31,8 @@ export default function CameraWeather({ data: wx, alwaysShowWind = false }) {
   const wind = describeWind(wx.wind);
   const temp = wx.main?.temp;
   const temperatureColor = temp <= COLD_TEMP ? 'info.main' : temp >= HOT_TEMP ? 'error.main' : 'inherit';
-  return (
-    <Typography variant="body2" component="div" sx={{ color: 'text.secondary', mt: 1 }}>
+  const parts = (
+    <>
       {wx.weather.map(weather => (
         <i key={weather.id} className={getWeatherIcon(weather.id, nightTime)} title={weather.description} style={SKY} />
       ))}
@@ -58,11 +60,25 @@ export default function CameraWeather({ data: wx, alwaysShowWind = false }) {
             <>
               {/* The arrow points the way the wind blows */}
               <i style={{ display: 'inline-block', transform: `rotate(${wind.towards}deg)` }} className="wi wi-wind-direction" />
-              <span style={{ paddingLeft: 4 }}>{`from ${wind.from.label}`}</span>
+              {!chip && <span style={{ paddingLeft: 4 }}>{`from ${wind.from.label}`}</span>}
             </>
           )}
         </Box>
       )}
-    </Typography>
+    </>
   );
+  if (chip) {
+    return (
+      <Box
+        sx={{
+          ...overlayChip, display: 'inline-flex', alignItems: 'center', px: 1, borderRadius: 10, color: 'text.primary', whiteSpace: 'nowrap',
+          '& .wi': { fontSize: '1.1em' },
+          '& .wi + .wi': { ml: 0.75 }, // Closer than in a line of text
+        }}
+      >
+        {parts}
+      </Box>
+    );
+  }
+  return <Typography variant="body2" component="div" sx={{ color: 'text.secondary', mt: 1 }}>{parts}</Typography>;
 }
