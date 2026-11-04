@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
+import Snackbar from '@mui/material/Snackbar';
 import CssBaseline from '@mui/material/CssBaseline';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { ThemeProvider, getOverlayAlpha, lighten } from '@mui/material/styles';
@@ -142,16 +144,24 @@ export default function App() {
     return !!level && congestionEnum[level].value <= congestionEnum[congestionFilter].value;
   }, [congestion, congestionFilter]);
 
+  // Each change of pins says so, with a way to undo it: { message, before (the pins), key }
+  const [pinNotice, setPinNotice] = useState(null);
+  const changePins = useCallback((next, message) => {
+    setPinNotice({ message, before: pinned, key: Date.now() });
+    setPinned(next);
+  }, [pinned, setPinned]);
+
   const togglePin = useCallback((id) => {
-    setPinned(ids => (ids.includes(id) ? ids.filter(i => i !== id) : [...ids, id]));
-  }, [setPinned]);
+    if (pinned.includes(id)) changePins(pinned.filter(i => i !== id), 'Unpinned');
+    else changePins([...pinned, id], 'Pinned');
+  }, [pinned, changePins]);
 
   // For a site on the map: pin all its cameras, or unpin them if they're all pinned already
   const toggleSitePins = useCallback((siteIds) => {
-    setPinned(ids => (siteIds.every(id => ids.includes(id))
-      ? ids.filter(id => !siteIds.includes(id))
-      : [...new Set([...ids, ...siteIds])]));
-  }, [setPinned]);
+    const plural = siteIds.length > 1 ? `the site's ${siteIds.length} cameras` : "the site's camera";
+    if (siteIds.every(id => pinned.includes(id))) changePins(pinned.filter(id => !siteIds.includes(id)), `Unpinned ${plural}`);
+    else changePins([...new Set([...pinned, ...siteIds])], `Pinned ${plural}`);
+  }, [pinned, changePins]);
 
   // A minimised map can't move, so focusing a camera expands it first
   const focus = useCallback((camera) => {
@@ -269,6 +279,19 @@ export default function App() {
           </Grid>
         </Box>
       )}
+      <Snackbar
+        key={pinNotice?.key}
+        open={!!pinNotice}
+        autoHideDuration={4000}
+        onClose={(e, reason) => reason !== 'clickaway' && setPinNotice(null)}
+        message={pinNotice?.message}
+        action={(
+          // Snackbars are the reverse of the theme (dark on the light one), so its button is too
+          <Button size="small" sx={{ color: mode === 'dark' ? 'primary.dark' : 'primary.light' }} onClick={() => { setPinned(pinNotice.before); setPinNotice(null); }}>
+            Undo
+          </Button>
+        )}
+      />
       <ErrorSnackbar
         message={error}
         actionLabel="Retry"
