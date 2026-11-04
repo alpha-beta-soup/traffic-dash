@@ -7,6 +7,7 @@ import { addLayers, greyWater } from '../map/layers';
 import maplibregl, { mapControls, mapControlsDark } from '../map/maplibre';
 import { addSignHover, setSigns, startSignPaging } from '../map/signs';
 import { cameraPath, navigate } from '../router';
+import { TOUCH as TOUCH_QUERY } from '../consts';
 import { groupCameraSites, warningFeatures } from '../utils';
 
 const ZOOM = 13;
@@ -21,6 +22,9 @@ const siteIdsOf = site => String(site.cameraIds).split(',').map(Number);
 // nearby, with this camera's site ringed. Clicking another site goes to its camera, preferring
 // the one facing the same way as this one. Once settled, `onMoveEnd` gets the map's centre
 // ([lon, lat]), or null when that's back where it started (the first camera shown).
+
+const TOUCH = window.matchMedia?.(TOUCH_QUERY).matches; // A device that can't hover
+
 export default function CameraMap({
   camera, cameras, events, signs, warnings, styleUrl, dark, traffic, onMoveEnd,
 }) {
@@ -47,15 +51,17 @@ export default function CameraMap({
       center: centreRef.current,
       zoom: ZOOM,
       attributionControl: false,
-      // A wheel over the map scrolls the page; the buttons zoom
+      // A wheel over the map scrolls the page; the buttons zoom. On a touchscreen, one finger
+      // scrolls the page too, and two move the map (it says so), which pinching zooms.
       scrollZoom: false,
+      cooperativeGestures: TOUCH,
       dragRotate: false,
       pitchWithRotate: false,
     });
     mapRef.current = map;
     map.touchZoomRotate.disableRotation();
     map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: NZTA_ATTRIBUTION }));
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    if (!TOUCH) map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.addControl(new maplibregl.ScaleControl(), 'bottom-left');
     map.on('load', () => {
       // Compact credits start open; on a map this small, start them folded to their ⓘ button
@@ -82,7 +88,7 @@ export default function CameraMap({
       map.getCanvas().style.cursor = ids.includes(cameraRef.current.id) ? '' : 'pointer';
     });
     map.on('mouseleave', 'cameras', () => { map.getCanvas().style.cursor = ''; });
-    addSignHover(map);
+    addSignHover(map, undefined, TOUCH);
     map.on('moveend', () => {
       const { lng, lat } = map.getCenter();
       reportCentre.current([lng, lat]);

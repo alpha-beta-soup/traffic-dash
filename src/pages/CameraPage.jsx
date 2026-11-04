@@ -208,6 +208,8 @@ function PlaybackControls({ player, frames, time }) {
       </Box>
       <Slider
         size="small"
+        // In from the edges by its handle's touch area, which would otherwise reach past the page's
+        sx={{ mx: 2, width: 'calc(100% - 32px)' }}
         min={0}
         max={count - 1}
         value={mode === 'live' ? count - 1 : index}
