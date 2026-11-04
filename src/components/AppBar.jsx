@@ -3,19 +3,23 @@ import MuiAppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import Link from '@mui/material/Link';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Toolbar from '@mui/material/Toolbar';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
 import AboutDialog from './AboutDialog';
 import Arrow from './Arrow';
 import Icon from './Icon';
-import ToggleButton from './ToggleButton';
 import { THEME_SETTINGS } from '../theme';
 import useNow from '../hooks/useNow';
 import { usePhone } from '../hooks/useScreen';
@@ -39,6 +43,20 @@ const CONGESTION_FILTERS = [
 ];
 
 const THEME_LABELS = { auto: 'Auto', light: 'Light', dark: 'Dark' };
+
+// The colour theme, as an icon (a sun, a moon, or A for following the system's), stepping
+// through Auto, Light and Dark
+function ThemeButton({ themeSetting, mode, onThemeSetting }) {
+  const next = THEME_SETTINGS[(THEME_SETTINGS.indexOf(themeSetting) + 1) % THEME_SETTINGS.length];
+  const now = themeSetting === 'auto' ? `Auto (${mode}, as your system is)` : THEME_LABELS[themeSetting];
+  return (
+    <Tooltip title={`Colour theme: ${now}. Click for ${THEME_LABELS[next]}`}>
+      <IconButton aria-label={`Colour theme: ${now}`} onClick={() => onThemeSetting(next)}>
+        <Icon name={themeSetting} />
+      </IconButton>
+    </Tooltip>
+  );
+}
 
 // On a phone, one line: the title, the congestion filter as a dropdown, and the rest in a menu
 function PhoneBar({
@@ -130,25 +148,29 @@ function WideBar({
         <Box sx={{ ml: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>
           {onBack && <Button size="small" variant="outlined" onClick={onBack} startIcon={<Arrow bearing={270} />}>Dashboard</Button>}
           {!onBack && congestionFilter && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }} role="group" aria-label="Congestion filter">
-              <Typography variant="body2" sx={{ mr: 0.5, whiteSpace: 'nowrap' }}>Congestion</Typography>
-              {CONGESTION_FILTERS.map(([value, label]) => (
-                <ToggleButton key={value} on={congestionFilter === value} onClick={() => onCongestionFilter(value)} offVariant="outlined">
-                  {label}
-                </ToggleButton>
-              ))}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2" id="congestion-filter" sx={{ whiteSpace: 'nowrap' }}>Congestion</Typography>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                color="primary"
+                value={congestionFilter}
+                onChange={(e, value) => value && onCongestionFilter(value)} // Always one chosen
+                aria-labelledby="congestion-filter"
+              >
+                {CONGESTION_FILTERS.map(([value, label]) => <ToggleButton key={value} value={value} sx={{ py: 0.25 }}>{label}</ToggleButton>)}
+              </ToggleButtonGroup>
             </Box>
           )}
-          {!onBack && <ToggleButton on={loopAll} onClick={onToggleLoopAll} offVariant="outlined">Loop all</ToggleButton>}
-          {/* Cycles Auto (follow the system), Light and Dark */}
-          <Button
-            size="small"
-            variant="outlined"
-            title="Colour theme: Auto follows your system's light or dark setting"
-            onClick={() => onThemeSetting(THEME_SETTINGS[(THEME_SETTINGS.indexOf(themeSetting) + 1) % THEME_SETTINGS.length])}
-          >
-            {themeSetting === 'auto' ? `Auto (${mode})` : themeSetting}
-          </Button>
+          {!onBack && (
+            <FormControlLabel
+              control={<Switch size="small" checked={loopAll} onChange={onToggleLoopAll} />}
+              label="Loop all"
+              slotProps={{ typography: { variant: 'body2' } }}
+              sx={{ mr: 0 }}
+            />
+          )}
+          <ThemeButton themeSetting={themeSetting} mode={mode} onThemeSetting={onThemeSetting} />
           <Link component="button" variant="subtitle1" color="secondary" underline="hover" onClick={onAbout} title="About, sources and source code">
             v{version}
           </Link>
