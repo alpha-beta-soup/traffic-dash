@@ -167,7 +167,7 @@ export const greyWater = (style, dark) => {
 };
 
 // weather: whether the server has weather (an OpenWeatherMap key), for the rain layer
-// What a camera's congestion was matched to, and the camera a phone's showing
+// What a camera's congestion was matched to
 const SELECTED = '#e040fb';
 
 export const addLayers = (map, traffic, dark, weather = false) => {
@@ -209,7 +209,7 @@ export const addLayers = (map, traffic, dark, weather = false) => {
   map.addSource('cameras', { type: 'geojson', data: EMPTY });
   map.addSource('signs', { type: 'geojson', data: EMPTY });
   map.addSource('matched', { type: 'geojson', data: EMPTY });
-  map.addSource('selected', { type: 'geojson', data: EMPTY }); // The camera a phone's showing, and its congestion's segments
+  map.addSource('selected', { type: 'geojson', data: EMPTY }); // The segments of the congestion of the camera a phone's showing
   map.addSource('event-roads', { type: 'geojson', data: EMPTY }); // Road segments events run along
   map.addSource('event-fallback', { type: 'geojson', data: EMPTY }); // Events with no road to snap to
   map.addSource('event-icons', { type: 'geojson', data: EMPTY }); // One point per event, for its icon
@@ -310,9 +310,7 @@ export const addLayers = (map, traffic, dark, weather = false) => {
   };
   // Under the traffic line, as a glow around it
   map.addLayer({ id: 'matched', source: 'matched', ...matched }, traffic ? 'traffic' : undefined);
-  map.addLayer({
-    id: 'selected-segments', source: 'selected', filter: ['==', ['geometry-type'], 'LineString'], ...matched,
-  }, traffic ? 'traffic' : undefined);
+  map.addLayer({ id: 'selected-segments', source: 'selected', ...matched }, traffic ? 'traffic' : undefined);
   map.addLayer({
     id: 'signs',
     type: 'symbol',
@@ -348,21 +346,6 @@ export const addLayers = (map, traffic, dark, weather = false) => {
       'text-color': ['case', ['get', 'dim'], labels.dimmed, labels.text],
       'text-halo-color': labels.halo,
       'text-halo-width': 1.6,
-    },
-  });
-  // A ring round the camera a phone's showing (shown whether or not the cameras are)
-  map.addLayer({
-    id: 'selected',
-    type: 'circle',
-    source: 'selected',
-    filter: ['==', ['geometry-type'], 'Point'],
-    paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 8, 11, 15],
-      'circle-color': SELECTED,
-      'circle-opacity': 0.15,
-      'circle-stroke-color': SELECTED,
-      'circle-stroke-width': 3,
-      'circle-pitch-alignment': 'map',
     },
   });
   // Counting sites, above the camera sites: they're often at the same spot, and smaller. Zoomed out,

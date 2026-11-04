@@ -335,18 +335,25 @@ export default function Map({
     }
   }, [minimised]);
 
-  // The camera a phone's showing, ringed, with the traffic its congestion was judged by
+  // The camera a phone's showing, with the traffic its congestion was judged by
   useEffect(() => {
     if (!loaded) return;
     const segments = selectedCamera ? congestion.get(selectedCamera.id)?.segments ?? [] : [];
     mapRef.current.getSource('selected')?.setData({
       type: 'FeatureCollection',
-      features: selectedCamera ? [
-        { type: 'Feature', geometry: { type: 'Point', coordinates: [selectedCamera.lon, selectedCamera.lat] }, properties: {} },
-        ...segments.map(coordinates => ({ type: 'Feature', geometry: { type: 'LineString', coordinates }, properties: {} })),
-      ] : [],
+      features: segments.map(coordinates => ({ type: 'Feature', geometry: { type: 'LineString', coordinates }, properties: {} })),
     });
   }, [loaded, selectedCamera, congestion]);
+  // …marked with a pulse (whether or not the cameras are shown): an element over the map, animated
+  // by CSS, so the map needn't redraw for it
+  const selectedAt = selectedCamera && [selectedCamera.lon, selectedCamera.lat].join();
+  useEffect(() => {
+    if (!loaded || !selectedAt) return undefined;
+    const element = document.createElement('div');
+    element.className = 'camera-pulse';
+    const marker = new maplibregl.Marker({ element }).setLngLat(selectedAt.split(',').map(Number)).addTo(mapRef.current);
+    return () => marker.remove();
+  }, [loaded, selectedAt]);
 
   // Optional layers. The congestion lines are hidden by making them transparent, not with
   // 'visibility': that clears the source's tiles until the map next moves, and the card
@@ -448,6 +455,20 @@ export default function Map({
         }),
         ...mapControls,
         ...(dark && mapControlsDark),
+        '& .camera-pulse': {
+          width: 26,
+          height: 26,
+          pointerEvents: 'none',
+          '&::before, &::after': {
+            content: '""', position: 'absolute', inset: 0, borderRadius: '50%', border: 2, borderColor: 'primary.main',
+          },
+          '&::after': { animation: 'camera-pulse 1.8s ease-out infinite' },
+          '@media (prefers-reduced-motion: reduce)': { '&::after': { animation: 'none', opacity: 0 } },
+        },
+        '@keyframes camera-pulse': {
+          from: { transform: 'scale(1)', opacity: 0.8 },
+          to: { transform: 'scale(2.4)', opacity: 0 },
+        },
       }}
     >
       {!minimised && (
