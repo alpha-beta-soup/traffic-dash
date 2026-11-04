@@ -12,7 +12,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import ErrorSnackbar from './components/ErrorSnackbar';
 import StaleNotice from './components/StaleNotice';
 import { DEFAULT_LAYERS } from './components/LayersMenu';
-import TrafficMap from './components/Map';
+import TrafficMap, { MAP_HEIGHT } from './components/Map';
 import useFeed from './hooks/useFeed';
 import { usePhone } from './hooks/useScreen';
 import useStoredSetting from './hooks/useStoredSetting';
@@ -220,7 +220,7 @@ export default function App() {
             {/* Minimised, the map takes a card's place at the start of the grid (same element, so it isn't recreated) */}
             <Grid size={mapMinimised ? CARD_SIZE : 12}>
               {config && (
-                <ErrorBoundary name="The map" sx={{ height: mapMinimised ? '100%' : '46.5vh' }}>
+                <ErrorBoundary name="The map" sx={{ height: mapMinimised ? '100%' : MAP_HEIGHT }}>
                   <TrafficMap
                     styleUrl={mode === 'dark' ? config.mapStyleDark : config.mapStyle}
                     dark={mode === 'dark'}

@@ -1,13 +1,21 @@
+import { useState } from 'react';
 import MuiAppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
+import IconButton from '@mui/material/IconButton';
 import Link from '@mui/material/Link';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 
 import ToggleButton from './ToggleButton';
 import { THEME_SETTINGS } from '../theme';
 import useNow from '../hooks/useNow';
+import { usePhone } from '../hooks/useScreen';
 import { homepage, version } from '../../package.json';
 
 const clockFormat = new Intl.DateTimeFormat('en-NZ', {
@@ -27,9 +35,79 @@ const CONGESTION_FILTERS = [
   ['heavy', 'Heavy+'],
 ];
 
+const THEME_LABELS = { auto: 'Auto', light: 'Light', dark: 'Dark' };
+
+// On a phone, one line: the title, the congestion filter as a dropdown, and the rest in a menu
+function PhoneBar({
+  loopAll, onToggleLoopAll, congestionFilter, onCongestionFilter, themeSetting, mode, onThemeSetting, onBack,
+}) {
+  const [anchor, setAnchor] = useState(null);
+  const close = () => setAnchor(null);
+  const tick = on => <ListItemIcon sx={{ visibility: on ? 'visible' : 'hidden' }}>✓</ListItemIcon>;
+  return (
+    <MuiAppBar position="static" color="default">
+      <Toolbar variant="dense" sx={{ gap: 1, px: 1.5 }}>
+        <Typography variant="subtitle1" noWrap sx={{ fontWeight: 500, flex: 1, minWidth: 0 }}>
+          NZ Traffic Dashboard
+        </Typography>
+        {onBack && <Button size="small" variant="outlined" onClick={onBack}>← Dashboard</Button>}
+        {!onBack && congestionFilter && (
+          <TextField
+            select
+            size="small"
+            label="Congestion"
+            value={congestionFilter}
+            onChange={e => onCongestionFilter(e.target.value)}
+            sx={{ width: 128, '& .MuiSelect-select': { py: 0.5 } }}
+          >
+            {CONGESTION_FILTERS.map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
+          </TextField>
+        )}
+        <IconButton
+          aria-label="More"
+          aria-haspopup="menu"
+          aria-expanded={!!anchor}
+          onClick={e => setAnchor(e.currentTarget)}
+          sx={{ fontSize: 22, lineHeight: 1, width: 40, height: 40 }}
+        >
+          ⋮
+        </IconButton>
+        <Menu anchorEl={anchor} open={!!anchor} onClose={close}>
+          {!onBack && (
+            <MenuItem role="menuitemcheckbox" aria-checked={loopAll} onClick={onToggleLoopAll}>
+              {tick(loopAll)}Loop all cameras
+            </MenuItem>
+          )}
+          {!onBack && <Divider />}
+          <MenuItem disabled sx={{ typography: 'caption' }}>Colour theme</MenuItem>
+          {THEME_SETTINGS.map(setting => (
+            <MenuItem
+              key={setting}
+              role="menuitemradio"
+              aria-checked={themeSetting === setting}
+              onClick={() => { onThemeSetting(setting); close(); }}
+            >
+              {tick(themeSetting === setting)}{THEME_LABELS[setting]}{setting === 'auto' && ` (${mode} now)`}
+            </MenuItem>
+          ))}
+          <Divider />
+          <MenuItem component="a" href={homepage} target="_blank" rel="noopener" onClick={close}>
+            Source code (v{version})
+          </MenuItem>
+        </Menu>
+      </Toolbar>
+    </MuiAppBar>
+  );
+}
+
 // congestionFilter is null when traffic data isn't available. onBack: on a page other than the
 // dashboard, which has a way back instead of the dashboard's controls
-export default function AppBar({
+export default function AppBar(props) {
+  const phone = usePhone();
+  return phone ? <PhoneBar {...props} /> : <WideBar {...props} />;
+}
+
+function WideBar({
   loopAll, onToggleLoopAll, congestionFilter, onCongestionFilter, themeSetting, mode, onThemeSetting, onBack,
 }) {
   const now = useNow(1000);

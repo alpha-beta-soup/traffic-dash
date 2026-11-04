@@ -30,6 +30,8 @@ import { lines } from '../utils/geometry';
 
 const DEFAULT_LOCATION = [174.787, -41.272]; // Wellington
 const DEFAULT_ZOOM = 11;
+// Shorter on a phone, so a camera card fits under it
+export const MAP_HEIGHT = { xs: '40svh', sm: '46.5vh' };
 const TOUCH = window.matchMedia?.(TOUCH_QUERY).matches;
 // Required by the NZTA terms of use: https://www.journeys.nzta.govt.nz/about-this-site/terms-of-use
 const NZTA_ATTRIBUTION = 'Cameras &amp; signs: <a href="https://www.journeys.nzta.govt.nz/" target="_blank" rel="noopener">Waka Kotahi NZ Transport Agency</a>';
@@ -467,7 +469,7 @@ export default function Map({
           position: 'relative',
           width: '100%',
           // Card-sized when minimised: fills its grid cell, and is at least as tall as a card's image
-          height: minimised ? '100%' : '46.5vh',
+          height: minimised ? '100%' : MAP_HEIGHT,
           minHeight: minimised ? 'calc(25.5vh + 8px)' : undefined,
         }}
       >
