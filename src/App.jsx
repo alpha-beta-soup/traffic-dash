@@ -18,7 +18,7 @@ import CameraPage from './pages/CameraPage';
 import { matchRoute, navigate, usePath } from './router';
 import { congestionEnum } from './consts';
 import {
-  fetchJson, filterCamerasByBbox, nearbyEvents, warningsAt,
+  fetchJson, filterCamerasByBbox, mapLinkQuery, nearbyEvents, warningsAt,
 } from './utils';
 import { makeTheme } from './theme';
 
@@ -49,6 +49,10 @@ export default function App() {
   const [mapMinimised, setMapMinimised] = useState(false);
   // Where the dashboard map was, so it comes back there (from a camera page, or on reload)
   const [mapView, setMapView] = useStoredSetting('map-view', null);
+  // The traffic counts compare all vehicles, or heavy or light ones; and the levels of change
+  // hidden from them (both chosen in their key)
+  const [countVehicles, setCountVehicles] = useStoredSetting('count-vehicles', 'all');
+  const [hiddenLevels, setHiddenLevels] = useStoredSetting('count-levels-hidden', []);
   const route = matchRoute(usePath());
   // 'auto' follows the system's light or dark setting
   const [themeSetting, setThemeSetting] = useStoredSetting('theme', 'auto');
@@ -96,6 +100,15 @@ export default function App() {
     { name: 'weather warnings', refresh: WARNINGS_REFRESH, ...warningsFeed },
     ...(mapLayers.counts ? [{ name: 'traffic counts', refresh: COUNTS_REFRESH, ...countsFeed }] : []),
   ];
+
+  // The dashboard's address says what its map shows (utils/mapLink), so it can be shared
+  useEffect(() => {
+    if (route.page !== 'dashboard') return;
+    const query = mapLinkQuery({
+      view: mapView, layers: mapLayers, vehicles: countVehicles, hidden: hiddenLevels,
+    });
+    if (window.location.search !== (query && `?${query}`)) window.history.replaceState(null, '', query ? `/?${query}` : '/');
+  }, [route.page, mapView, mapLayers, countVehicles, hiddenLevels]);
 
   // Results for the cameras the map just evaluated; others keep their last known congestion.
   // Only update when something changed, as each update redraws the map, which re-evaluates.
@@ -202,6 +215,10 @@ export default function App() {
                     onLayersChange={setMapLayers}
                     initialView={mapView}
                     onViewChange={setMapView}
+                    countVehicles={countVehicles}
+                    onCountVehicles={setCountVehicles}
+                    hiddenLevels={hiddenLevels}
+                    onHiddenLevels={setHiddenLevels}
                   />
                 </ErrorBoundary>
               )}

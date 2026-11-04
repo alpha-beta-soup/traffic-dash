@@ -15,6 +15,7 @@ export { default as describeWind } from './wind';
 export { default as sunEvent } from './sunEvent';
 export { default as jpegSize, resolutionLabel } from './jpegSize';
 export { insideRing, warningColour, warningFeatures, warningTextColour, warningsAt } from './weatherWarnings';
+export { mapLinkQuery, readMapLink } from './mapLink';
 export { default as staleFeeds } from './staleFeeds';
 export { default as trend } from './trend';
 export {

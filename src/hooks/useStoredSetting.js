@@ -10,6 +10,16 @@ const load = (key, fallback) => {
   }
 };
 
+// Saves a setting as useStoredSetting would, from outside a component (e.g. from a link followed,
+// before the page renders); ignored if storage isn't available
+export function storeSetting(key, value) {
+  try {
+    localStorage.setItem(PREFIX + key, JSON.stringify(value));
+  } catch {
+    // Not saved: the page starts as it otherwise would
+  }
+}
+
 // useState, remembered in this browser between visits. If storage isn't available (e.g. a
 // private window), the setting still works for the session. `merge` combines a saved value
 // with the fallback, e.g. so a newly added option starts at its default.

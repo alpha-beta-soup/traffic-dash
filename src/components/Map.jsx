@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
+import Snackbar from '@mui/material/Snackbar';
 
 import CongestionLegend from './CongestionLegend';
 import CountPopup from './CountPopup';
@@ -12,7 +13,6 @@ import MapPopup from './MapPopup';
 import SitePopup, { DIRECTION_ORDER } from './SitePopup';
 import WarningDetails from './WarningDetails';
 import useLatest from '../hooks/useLatest';
-import useStoredSetting from '../hooks/useStoredSetting';
 import {
   COUNT_DOTS, COUNT_LAYERS, EMPTY, EVENT_LAYERS, RAIN_LAYER, RAIN_REFRESH, SIGN_LAYERS, TRAFFIC_LAYERS, WARNING_LAYERS, WIND_LAYERS, WIND_REFRESH,
   addLayers, countFilters, greyWater, rainTiles, refreshWind, trafficOpacity, trafficTiles,
@@ -56,6 +56,7 @@ const toGeojson = items => ({
 export default function Map({
   styleUrl, dark, traffic, weather, cameras, signs, events, warnings, trafficCounts, centre, congestion, isShown, minimised,
   layers, initialView, onBoundsChange, onSiteClick, onCongestion, onToggleMinimised, onLayersChange, onViewChange,
+  countVehicles: vehicles, onCountVehicles, hiddenLevels, onHiddenLevels,
 }) {
   const container = useRef(null);
   const mapRef = useRef(null);
@@ -333,8 +334,18 @@ export default function Map({
     if (loaded) mapRef.current.getSource('weather-warnings').setData(warningFeatures(warnings));
   }, [loaded, warnings]);
 
+  // A link to the map as it is: the page's address, which says so (utils/mapLink)
+  const [notice, setNotice] = useState(null);
+  const share = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setNotice('Link to this map copied to the clipboard');
+    } catch {
+      setNotice(`Couldn't copy to the clipboard: ${window.location.href}`);
+    }
+  };
+
   // The counts compare all vehicles, or heavy or light ones (chosen in their key)
-  const [vehicles, setVehicles] = useStoredSetting('count-vehicles', 'all');
   useEffect(() => {
     const map = mapRef.current;
     // A new theme rebuilds the map (for its style), and this runs once more with the old map's
@@ -345,13 +356,12 @@ export default function Map({
   }, [loaded, trafficCounts, dark, vehicles]);
 
   // The levels of change hidden from the counts (clicked off in their key)
-  const [hiddenLevels, setHiddenLevels] = useStoredSetting('count-levels-hidden', []);
   useEffect(() => {
     if (!loaded) return;
     Object.entries(countFilters(hiddenLevels)).forEach(([id, filter]) => mapRef.current.setFilter(id, filter));
     setHoveredCounts(null);
   }, [loaded, hiddenLevels]);
-  const toggleLevel = level => setHiddenLevels(hidden => (hidden.includes(level) ? hidden.filter(l => l !== level) : [...hidden, level]));
+  const toggleLevel = level => onHiddenLevels(hidden => (hidden.includes(level) ? hidden.filter(l => l !== level) : [...hidden, level]));
 
   useEffect(() => {
     if (loaded) setSigns(mapRef.current, signs);
@@ -392,6 +402,7 @@ export default function Map({
         </Box>
       )}
       <Box sx={{ position: 'absolute', zIndex: 2, top: 10, right: minimised ? 10 : 50, display: 'flex', gap: 0.5 }}>
+        {!minimised && <Button variant="contained" size="small" onClick={share} sx={{ opacity: 0.85 }}>Share</Button>}
         {!minimised && <LayersMenu layers={layers} onChange={onLayersChange} traffic={traffic} weather={weather} />}
         <Button variant="contained" size="small" onClick={onToggleMinimised} sx={{ opacity: 0.85 }}>
           {minimised ? 'Expand' : 'Minimise'}
@@ -422,7 +433,7 @@ export default function Map({
               hidden={hiddenLevels}
               onToggle={toggleLevel}
               vehicles={vehicles}
-              onVehicles={setVehicles}
+              onVehicles={onCountVehicles}
             />
           )}
           {traffic && layers.traffic && <CongestionLegend />}
@@ -452,6 +463,13 @@ export default function Map({
       {hoveredEvent && !minimised && mapRef.current && (
         <EventPopup map={mapRef.current} event={hoveredEvent} lngLat={[hoveredEvent.lon, hoveredEvent.lat]} />
       )}
+      <Snackbar
+        open={!!notice}
+        autoHideDuration={4000}
+        onClose={() => setNotice(null)}
+        message={notice}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Paper>
   );
 }
