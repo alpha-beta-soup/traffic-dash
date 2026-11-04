@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import { alpha } from '@mui/material/styles';
 
+import Icon from './Icon';
 import useStoredSetting from '../hooks/useStoredSetting';
 import { usePhone, useTouch } from '../hooks/useScreen';
 
@@ -38,7 +39,7 @@ function Panel({
       >
         <Box component="span" sx={{ fontWeight: 500 }}>{title}</Box>
         {!open && note && <Box component="span" sx={{ color: 'text.secondary' }}>· {note}</Box>}
-        <Box component="span" aria-hidden="true" sx={{ ml: 'auto', pl: 0.5, color: 'text.secondary' }}>{open ? '▾' : '▸'}</Box>
+        <Icon name={open ? 'expand' : 'chevron'} aria-hidden="true" sx={{ ml: 'auto', pl: 0.25, fontSize: '1.4em', alignSelf: 'center', color: 'text.secondary' }} />
       </Box>
       {open && children}
     </Box>

@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 
+import Icon from './Icon';
 import { usePhone } from '../hooks/useScreen';
 
 const MARGIN = 6; // px kept clear of the window's edges
@@ -68,7 +69,7 @@ export default function MapPopup({
             }}
           >
             <Box aria-hidden="true" sx={{ position: 'absolute', left: '50%', top: 6, width: 36, height: 4, ml: '-18px', borderRadius: 2, bgcolor: 'divider' }} />
-            <IconButton aria-label="Close" onClick={onClose} sx={{ mr: -0.5, width: 36, height: 36, fontSize: 18 }}>✕</IconButton>
+            <IconButton aria-label="Close" onClick={onClose} sx={{ mr: -0.5 }}><Icon name="close" fontSize="small" /></IconButton>
           </Box>
         )}
         {children}

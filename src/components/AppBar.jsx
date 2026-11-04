@@ -14,6 +14,7 @@ import Typography from '@mui/material/Typography';
 
 import AboutDialog from './AboutDialog';
 import Arrow from './Arrow';
+import Icon from './Icon';
 import ToggleButton from './ToggleButton';
 import { THEME_SETTINGS } from '../theme';
 import useNow from '../hooks/useNow';
@@ -45,7 +46,7 @@ function PhoneBar({
 }) {
   const [anchor, setAnchor] = useState(null);
   const close = () => setAnchor(null);
-  const tick = on => <ListItemIcon sx={{ visibility: on ? 'visible' : 'hidden' }}>✓</ListItemIcon>;
+  const tick = on => <ListItemIcon sx={{ visibility: on ? 'visible' : 'hidden' }}><Icon name="check" fontSize="small" /></ListItemIcon>;
   return (
     <MuiAppBar position="static" color="default">
       <Toolbar variant="dense" sx={{ gap: 1, px: 1.5 }}>
@@ -70,9 +71,8 @@ function PhoneBar({
           aria-haspopup="menu"
           aria-expanded={!!anchor}
           onClick={e => setAnchor(e.currentTarget)}
-          sx={{ fontSize: 22, lineHeight: 1, width: 40, height: 40 }}
         >
-          ⋮
+          <Icon name="more" />
         </IconButton>
         <Menu anchorEl={anchor} open={!!anchor} onClose={close}>
           {!onBack && (
