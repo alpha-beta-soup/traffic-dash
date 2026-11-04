@@ -13,6 +13,10 @@ export const ANIMATION_HOLD = 1500; // ms to hold the present before looping
 export const ANIMATION_FADE = 400; // ms
 export const BLACK = '#113654';
 export const LIGHTBLACK = '#485d6f';
+// Screens narrower than MUI's sm breakpoint: phones, held upright
+export const PHONE = '(max-width: 599.95px)';
+// Narrower than its md breakpoint: phones, and tablets held upright
+export const NARROW = '(max-width: 899.95px)';
 export const TRAFFIC_REFRESH = 5 * 60_000; // ms; Mapbox updates traffic roughly this often
 
 // Randomised per camera, so they don't all hit the server at once

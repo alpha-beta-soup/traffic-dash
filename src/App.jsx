@@ -16,7 +16,7 @@ import useFeed from './hooks/useFeed';
 import useStoredSetting from './hooks/useStoredSetting';
 import CameraPage from './pages/CameraPage';
 import { matchRoute, navigate, usePath } from './router';
-import { congestionEnum } from './consts';
+import { PHONE, congestionEnum } from './consts';
 import {
   fetchJson, filterCamerasByBbox, mapLinkQuery, nearbyEvents, warningsAt,
 } from './utils';
@@ -46,7 +46,10 @@ export default function App() {
   // 'all', or the least severe congestion level to show
   const [congestionFilter, setCongestionFilter] = useStoredSetting('congestion-filter', 'all');
   const [centre, setCentre] = useState(null);
-  const [mapMinimised, setMapMinimised] = useState(false);
+  const [minimisedChoice, setMapMinimised] = useState(false);
+  // A phone has one column of cameras, so there's nowhere smaller for the map to go
+  const phone = useMediaQuery(PHONE);
+  const mapMinimised = minimisedChoice && !phone;
   // Where the dashboard map was, so it comes back there (from a camera page, or on reload)
   const [mapView, setMapView] = useStoredSetting('map-view', null);
   // The traffic counts compare all vehicles, or heavy or light ones; and the levels of change
@@ -210,7 +213,7 @@ export default function App() {
                     onBoundsChange={setBounds}
                     onSiteClick={toggleSitePins}
                     onCongestion={updateCongestion}
-                    onToggleMinimised={() => setMapMinimised(on => !on)}
+                    onToggleMinimised={phone ? undefined : () => setMapMinimised(on => !on)}
                     layers={mapLayers}
                     onLayersChange={setMapLayers}
                     initialView={mapView}

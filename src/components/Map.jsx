@@ -4,6 +4,7 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Snackbar from '@mui/material/Snackbar';
 
+import CityButtons from './CityButtons';
 import CongestionLegend from './CongestionLegend';
 import CountPopup from './CountPopup';
 import CountsLegend from './CountsLegend';
@@ -29,13 +30,8 @@ import { lines } from '../utils/geometry';
 
 const DEFAULT_LOCATION = [174.787, -41.272]; // Wellington
 const DEFAULT_ZOOM = 11;
-const REGION_HIGHLIGHTS = {
-  Auckland: [174.7633, -36.8484],
-  Hamilton: [175.2793, -37.7870],
-  Wellington: [174.7762, -41.2865],
-  Christchurch: [172.6362, -43.5321],
-  Dunedin: [170.5028, -45.8788],
-};
+// A device that can't hover: a phone, a tablet
+const TOUCH = window.matchMedia?.('(hover: none)').matches;
 // Required by the NZTA terms of use: https://www.journeys.nzta.govt.nz/about-this-site/terms-of-use
 const NZTA_ATTRIBUTION = 'Cameras &amp; signs: <a href="https://www.journeys.nzta.govt.nz/" target="_blank" rel="noopener">Waka Kotahi NZ Transport Agency</a>';
 // Every way of moving the map; all off while it's minimised
@@ -107,7 +103,16 @@ export default function Map({
       attributionControl: { customAttribution: NZTA_ATTRIBUTION },
     });
     mapRef.current = map;
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    // On a touchscreen, pinching zooms, so only the compass: shown once the map's turned or
+    // tilted, to put it back
+    map.addControl(new maplibregl.NavigationControl({ showZoom: !TOUCH, visualizePitch: true }), 'top-right');
+    if (TOUCH) {
+      const showCompass = () => map.getContainer().classList
+        .toggle('turned', Math.round(map.getBearing()) !== 0 || Math.round(map.getPitch()) !== 0);
+      map.on('rotate', showCompass);
+      map.on('pitch', showCompass);
+      showCompass();
+    }
     map.addControl(new maplibregl.ScaleControl(), 'bottom-right');
 
     // While minimised the grid keeps the cameras from the full-size view, which is remembered
@@ -169,7 +174,6 @@ export default function Map({
     // from one site to a neighbouring one. A device that can't hover (a phone, a tablet) taps
     // instead: a tap shows what a hover would, a second tap on a site does what a click does, and a
     // tap elsewhere on the map closes it.
-    const touch = window.matchMedia?.('(hover: none)').matches;
     let shownAt = 0; // When a site was last shown: a tap's own (emulated) mousemove shows it just before its click
     const siteIds = e => String(e.features[0].properties.cameraIds).split(',').map(Number);
     // A counting site's dot, drawn over the camera icon it's often beside, takes the pointer
@@ -206,7 +210,7 @@ export default function Map({
     map.on('mouseleave', 'cameras', leaveSite);
     map.on('click', 'cameras', (e) => {
       if (minimisedRef.current || onCountDot(e)) return;
-      if (touch && (hoverKey.current !== e.features[0].properties.cameraIds || Date.now() - shownAt < 500)) {
+      if (TOUCH && (hoverKey.current !== e.features[0].properties.cameraIds || Date.now() - shownAt < 500)) {
         showSite(e); // A first tap: show it
         return;
       }
@@ -214,10 +218,10 @@ export default function Map({
     });
 
     // Hovering a sign's icon shows the sign itself
-    addSignHover(map, () => minimisedRef.current, touch);
+    addSignHover(map, () => minimisedRef.current, TOUCH);
 
     // Hovering a road event's icon shows its details
-    map.on(touch ? 'click' : 'mousemove', 'events', (e) => {
+    map.on(TOUCH ? 'click' : 'mousemove', 'events', (e) => {
       if (minimisedRef.current) return;
       const { id } = e.features[0].properties;
       map.getCanvas().style.cursor = 'pointer';
@@ -230,7 +234,7 @@ export default function Map({
 
     // Hovering a counting place (or site, zoomed in) shows how its traffic compares with recent years
     COUNT_DOTS.forEach((id) => {
-      map.on(touch ? 'click' : 'mousemove', id, (e) => {
+      map.on(TOUCH ? 'click' : 'mousemove', id, (e) => {
         if (minimisedRef.current) return;
         // Read now: the event's features are gone by the time React runs the update
         const { properties: { refs }, geometry: { coordinates: lngLat } } = e.features[0];
@@ -261,7 +265,7 @@ export default function Map({
       const icons = ['cameras', 'events', 'signs', ...COUNT_DOTS].filter(id => map.getLayer(id));
       const onIcon = map.queryRenderedFeatures(e.point, { layers: icons });
       // A tap off whatever's showing closes it (what's tapped shows instead)
-      if (touch) {
+      if (TOUCH) {
         const tapped = new Set(onIcon.map(f => f.layer.id));
         if (!tapped.has('cameras')) leaveSite();
         if (!tapped.has('signs')) hideExpandedSign(map);
@@ -417,31 +421,28 @@ export default function Map({
         // The zoom controls go too: nothing on a minimised map responds. So does the attribution,
         // which would cover it; hidden rather than removed, as it would come back above the scale.
         '& .maplibregl-ctrl-top-right, & .maplibregl-ctrl-attrib': minimised ? { display: 'none' } : {},
+        // The compass alone, below the buttons, while the map's turned
+        ...(TOUCH && {
+          '& .maplibregl-ctrl-top-right': { top: 40 },
+          '& .maplibregl-map:not(.turned) .maplibregl-ctrl-top-right': { display: 'none' },
+        }),
         ...mapControls,
         ...(dark && mapControlsDark),
       }}
     >
       {!minimised && (
-        <Box sx={{ position: 'absolute', top: 10, left: 10, zIndex: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-          {Object.entries(REGION_HIGHLIGHTS).map(([region, lngLat]) => (
-            <Button
-              key={region}
-              variant="contained"
-              size="small"
-              sx={{ opacity: 0.85 }}
-              onClick={() => mapRef.current?.flyTo({ center: lngLat, zoom: DEFAULT_ZOOM, curve: 6 ** 0.25 })}
-            >
-              {region}
-            </Button>
-          ))}
+        <Box sx={{ position: 'absolute', top: 10, left: 10, zIndex: 1 }}>
+          <CityButtons onGo={lngLat => mapRef.current?.flyTo({ center: lngLat, zoom: DEFAULT_ZOOM, curve: 6 ** 0.25 })} />
         </Box>
       )}
-      <Box sx={{ position: 'absolute', zIndex: 2, top: 10, right: minimised ? 10 : 50, display: 'flex', gap: 0.5 }}>
+      <Box sx={{ position: 'absolute', zIndex: 2, top: 10, right: minimised || TOUCH ? 10 : 50, display: 'flex', gap: 0.5 }}>
         {!minimised && <Button variant="contained" size="small" onClick={share} sx={{ opacity: 0.85 }}>Share</Button>}
         {!minimised && <LayersMenu layers={layers} onChange={onLayersChange} traffic={traffic} weather={weather} />}
-        <Button variant="contained" size="small" onClick={onToggleMinimised} sx={{ opacity: 0.85 }}>
-          {minimised ? 'Expand' : 'Minimise'}
-        </Button>
+        {onToggleMinimised && ( // Not on a phone
+          <Button variant="contained" size="small" onClick={onToggleMinimised} sx={{ opacity: 0.85 }}>
+            {minimised ? 'Expand' : 'Minimise'}
+          </Button>
+        )}
       </Box>
       <Box
         sx={{
