@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  SHOWN_DAYS, YEAR, change, fetchSites, summarise,
+  SHOWN_DAYS, YEAR, change, fetchSites, lanesAdded, monthly, summarise, trustedDays,
 } from '../server/trafficCounts.js';
 import {
   changeLevel, countFeatures, countedTo, formatChange,
@@ -98,6 +98,54 @@ describe('traffic counts', () => {
     assert.equal(change(series, 7), null);
     series[3].baseline = 80;
     assert.equal(change(series, 7), 0.25);
+  });
+
+  it('averages each month of a site’s history, from days with all its lanes', () => {
+    const start = Date.parse('2020-03-01');
+    const rows = [
+      ...days('A', start + 30 * DAY, 31, () => 20000), // March: 31 days of 20000
+      ...days('A', start + 31 * DAY + 4 * DAY, 5, () => 5000), // April: only 5 days counted
+      ...days('A', start + 61 * DAY + 29 * DAY, 30, i => (i === 0 ? 1 : 10000)), // May: 30 days
+      ...dayRows('A', start + 61 * DAY + 30 * DAY, 3000, 1), // and one missing a lane
+    ];
+    assert.deepEqual(monthly(rows), [
+      { month: '2020-03', total: 20000, heavy: 2000 },
+      { month: '2020-04', total: null, heavy: null }, // Too few days to say
+      { month: '2020-05', total: Math.round((1 + 29 * 10000) / 30), heavy: Math.round((0.1 + 29 * 1000) / 30) },
+    ]);
+    assert.deepEqual(monthly([]), []);
+  });
+
+  it('counts repeated rows once, and leaves out days missing a lane or implausibly busy', () => {
+    const usual = Array.from({ length: 20 }, () => ({ total: 10000, heavy: 1000, rows: 4 }));
+    const sevenTimes = { total: 70000, heavy: 7000, rows: 28 }; // Every row there seven times over
+    const partial = { total: 5000, heavy: 500, rows: 2 }; // A lane missing
+    const spike = { total: 80000, heavy: 8000, rows: 4 }; // Eight times the usual: a fault
+    const lockdown = { total: 2500, heavy: 250, rows: 4 }; // A quarter of the usual: real
+    const trusted = trustedDays([...usual, sevenTimes, partial, spike, lockdown]);
+    assert.deepEqual([usual[0], sevenTimes, partial, spike, lockdown].map(trusted), [
+      usual[0], { total: 10000, heavy: 1000, rows: 4 }, null, null, lockdown,
+    ]);
+  });
+
+  it('adds up a day’s lanes, each counted once', () => {
+    const lane = (laneNumber, classWeight, n) => ({ startDate: 1, classWeight, laneNumber, n });
+    // Each lane's n is the average of its rows, so a lane there seven times over still counts once
+    assert.deepEqual(lanesAdded([lane(1, 'Light', 12000), lane(2, 'Light', 11500), lane(1, 'Heavy', 650), lane(2, 'Heavy', 120)]), [
+      { startDate: 1, classWeight: 'Light', n: 23500, rows: 2 },
+      { startDate: 1, classWeight: 'Heavy', n: 770, rows: 2 },
+    ]);
+  });
+
+  it('leaves a month faulty throughout out of a site’s history', () => {
+    const start = Date.parse('2026-01-01');
+    const rows = [
+      ...days('A', start + 30 * DAY, 31, () => 20000), // January
+      ...days('A', start + 58 * DAY, 28, () => 160000), // February: eight times over every day, in the usual rows (a fault other than repeats)
+      ...days('A', start + 89 * DAY, 31, () => 21000), // March
+      ...days('A', start + 119 * DAY, 30, () => 22000), // April
+    ];
+    assert.deepEqual(monthly(rows).map(m => m.total), [20000, null, 21000, 22000]);
   });
 
   it('leaves out sites with nothing recent, or not on the map', () => {

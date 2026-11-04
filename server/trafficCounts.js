@@ -92,6 +92,34 @@ export const fetchDaily = (fetchJson, from, to) => query(fetchJson, COUNTS_URL, 
   orderByFields: 'SiteRef,startDate,classWeight',
 });
 
+// A site's days ({ total, heavy, rows }) as they can be trusted: a function from a day to the day,
+// or null if it can't be:
+// - its rows repeated (NZTA's data has whole months with every row there several times over):
+//   as many times as the site's commonest day's rows go into its own, so counted once each
+// - a lane missing (its rows not a whole number of times the commonest's): null, as it would look
+//   quiet, rather than not counted
+// - implausible: more than IMPLAUSIBLE times its median day, null. A backstop for other faults:
+//   real traffic falls far below usual at times (2020's lockdown: a quarter), but never rises so.
+const IMPLAUSIBLE = 3;
+const commonest = values => [...Map.groupBy(values, v => v)].sort((a, b) => b[1].length - a[1].length || b[0] - a[0])[0]?.[0];
+const median = (values) => {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] ?? 0;
+};
+export const trustedDays = (days) => {
+  const rows = commonest(days.map(d => d.rows));
+  const once = (day) => {
+    if (!day || !rows || day.rows % rows) return null;
+    const times = day.rows / rows;
+    return times === 1 ? day : { total: day.total / times, heavy: day.heavy / times, rows };
+  };
+  const most = IMPLAUSIBLE * median(days.map(once).filter(Boolean).map(d => d.total));
+  return (day) => {
+    const counted = once(day);
+    return counted && counted.total <= most ? counted : null;
+  };
+};
+
 // Daily rows → site → date (moved on by `shift` ms) → { total, heavy, rows }
 const byDay = (rows, shift = 0) => {
   const sites = new Map();
@@ -146,10 +174,11 @@ export function summarise(sites, recentRows, pastRows, today) {
   };
   return [...recent].flatMap(([ref, days]) => {
     const site = sites.get(ref);
-    // A day's counts, if all of its year's lanes were counted (a road can gain a lane)
+    // A day's counts, if they can be trusted (trustedDays), judged in its own year (a road can
+    // gain a lane)
     const completeIn = (year) => {
-      const lanes = Math.max(0, ...[...year.values()].map(d => d.rows));
-      return date => (year.get(date)?.rows === lanes ? year.get(date) : null);
+      const trusted = trustedDays([...year.values()]);
+      return date => trusted(year.get(date));
     };
     const now = completeIn(days);
     const before = past.map(year => completeIn(year.get(ref) ?? new Map()));
@@ -197,3 +226,49 @@ export async function fetchTrafficCounts(fetchJson, sites, now = Date.now()) {
   }
   return summarise(sites, recent, past, today);
 }
+
+// A site's traffic over the years: its average daily count each month since HISTORY_FROM, all
+// vehicles and heavy ones, from the days with all of that month's lanes counted. Fetched a site at
+// a time, when asked for (it's thousands of days each).
+const HISTORY_FROM = '2018-01-01'; // When NZTA's daily counts begin
+const MIN_MONTH_DAYS = 10; // Days counted, for a month's average to be shown: fewer would mislead
+
+// Daily rows ({ startDate, classWeight, n, rows }) → [{ month: 'YYYY-MM', total, heavy }], every
+// month from the first counted to the last, total and heavy null where too few days were counted
+export function monthly(rows) {
+  const days = byDay(rows.map(row => ({ ...row, SiteRef: 'site' }))).get('site') ?? new Map();
+  const months = Map.groupBy(days, ([date]) => date.slice(0, 7));
+  if (!months.size) return [];
+  const [first, last] = [[...months.keys()].sort()[0], [...months.keys()].sort().at(-1)];
+  // Over all its years too: a month can be faulty throughout
+  const most = IMPLAUSIBLE * median([...days.values()].map(trustedDays([...days.values()])).filter(Boolean).map(d => d.total));
+  const result = [];
+  for (let at = new Date(`${first}-01T00:00:00Z`); isoDate(at).slice(0, 7) <= last; at.setUTCMonth(at.getUTCMonth() + 1)) {
+    const month = isoDate(at).slice(0, 7);
+    const counted = (months.get(month) ?? []).map(([, d]) => d);
+    const trusted = trustedDays(counted); // By that month's lanes (a road can gain a lane)
+    const complete = counted.map(trusted).filter(d => d && d.total <= most);
+    const mean = count => complete.reduce((sum, d) => sum + count(d), 0) / complete.length;
+    result.push(complete.length >= MIN_MONTH_DAYS
+      ? { month, total: Math.round(mean(d => d.total)), heavy: Math.round(mean(d => d.heavy)) }
+      : { month, total: null, heavy: null });
+  }
+  return result;
+}
+
+// Rows of each lane's count on a day (startDate, classWeight, laneNumber, n) → rows of each day's
+// count, its lanes added up (startDate, classWeight, n, rows: its lanes)
+export const lanesAdded = laneRows => [...Map.groupBy(laneRows, row => `${row.startDate}|${row.classWeight}`).values()]
+  .map(lanes => ({
+    startDate: lanes[0].startDate, classWeight: lanes[0].classWeight, n: lanes.reduce((sum, lane) => sum + lane.n, 0), rows: lanes.length,
+  }));
+
+// One site's monthly history (monthly()). Each lane's count is its rows' average, not their sum:
+// NZTA's data has months with every row there several times over, which this counts once. `ref`
+// goes into the query as is, so give only one known to be a site's (from fetchSites).
+export const fetchHistory = async (fetchJson, ref) => monthly(lanesAdded(await query(fetchJson, COUNTS_URL, {
+  where: `SiteRef = '${ref}' AND startDate >= DATE '${HISTORY_FROM}'`,
+  outStatistics: JSON.stringify([{ statisticType: 'avg', onStatisticField: 'trafficCount', outStatisticFieldName: 'n' }]),
+  groupByFieldsForStatistics: 'startDate,classWeight,laneNumber',
+  orderByFields: 'startDate,classWeight,laneNumber',
+})));

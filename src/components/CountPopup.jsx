@@ -90,6 +90,67 @@ function DailyChart({ days, height: H, vehicles }) {
 // "NGAURANGA SH1 - Telemetry Site 3 - SB" → "NGAURANGA SH1 - Site 3 - SB"
 const shortName = name => name.replace(/\bTelemetry Site\b/i, 'Site');
 
+// Each site's monthly history since 2018, fetched once a page load (the server keeps it a day)
+const histories = new Map();
+const fetchHistory = (ref) => {
+  if (!histories.has(ref)) {
+    const request = fetchJson(`/api/traffic-counts/${encodeURIComponent(ref)}/history`).then(({ months }) => months);
+    request.catch(() => histories.delete(ref)); // Tried again next time
+    histories.set(ref, request);
+  }
+  return histories.get(ref);
+};
+
+// A month's average daily count of a class of vehicles (null if too few days were counted)
+const MONTHLY = {
+  all: m => m.total,
+  heavy: m => m.heavy,
+  light: m => (m.total === null ? null : m.total - m.heavy),
+};
+const LONG_H = 26;
+
+// A site's average day each month since 2018 (a line, gaps where too few days were counted), with
+// its years marked: lockdowns, growth, a new road nearby, where the five weeks above can't show them
+function LongTermChart({ months, vehicles }) {
+  const theme = useTheme();
+  const count = MONTHLY[vehicles];
+  const values = months.map(count);
+  const top = Math.max(1, ...values.filter(v => v !== null));
+  const x = i => (i / Math.max(1, months.length - 1)) * W;
+  const y = v => LONG_H - (v / top) * LONG_H;
+  const path = values.reduce((parts, v, i) => (v === null ? parts : `${parts}${i && values[i - 1] !== null ? 'L' : 'M'}${x(i)},${y(v)}`), '');
+  const years = months.flatMap((m, i) => (m.month.endsWith('-01') ? [[i, m.month.slice(0, 4)]] : []));
+  const tick = { fill: theme.palette.text.secondary, fontSize: 9 };
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${LONG_H + 11}`}
+      style={{ width: '100%', height: 'auto', display: 'block' }}
+      role="img"
+      aria-label={`Average vehicles a day each month, ${months[0].month.slice(0, 4)} to ${months.at(-1).month.slice(0, 4)}`}
+    >
+      {years.map(([i, year]) => (
+        <g key={year}>
+          <line x1={x(i)} x2={x(i)} y1={0} y2={LONG_H} stroke={theme.palette.divider} />
+          {/* Every other year labelled, where they'd crowd */}
+          {(years.length < 6 || Number(year) % 2 === 0) && <text x={x(i) + 2} y={LONG_H + 9} style={tick}>{year}</text>}
+        </g>
+      ))}
+      <path d={path} fill="none" stroke={seriesColour(theme)} strokeWidth={1.25} strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function useHistory(ref, enabled) {
+  const [months, setMonths] = useState(null);
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let current = true;
+    fetchHistory(ref).then(found => current && setMonths(found)).catch(() => {});
+    return () => { current = false; };
+  }, [ref, enabled]);
+  return months;
+}
+
 // A site's daily counts, fetched with its row
 function useDays(site) {
   const [days, setDays] = useState(null);
@@ -103,8 +164,9 @@ function useDays(site) {
 
 // One site: its name and change on a line, the details under it, and its five weeks charted
 function CountRow({
-  site, chartHeight, showLatest, vehicles,
+  site, chartHeight, showLatest, vehicles, history,
 }) {
+  const months = useHistory(site.ref, history);
   const theme = useTheme();
   const days = useDays(site);
   const change = siteChange(site, vehicles);
@@ -135,6 +197,16 @@ function CountRow({
         {details.join(' · ')}
       </Typography>
       {days ? <DailyChart days={days} height={chartHeight} vehicles={vehicles} /> : <Box sx={{ height: chartHeight }} />}
+      {history && (months?.length > 1
+        ? (
+          <>
+            <Typography variant="caption" sx={{ ...TIGHT, color: 'text.secondary', display: 'block', mt: 0.5 }}>
+              Each month since {months[0].month.slice(0, 4)}
+            </Typography>
+            <LongTermChart months={months} vehicles={vehicles} />
+          </>
+        )
+        : <Box sx={{ height: LONG_H + 24 }} />)}
     </Box>
   );
 }
@@ -164,8 +236,10 @@ function ChartKey() {
 }
 
 // The counting sites at a place, compactly: what they're compared with and the chart's key once,
-// each site's name, change and chart (smaller, the more there are, to fit a popup)
-export function CountList({ sites, vehicles = 'all' }) {
+// each site's name, change and chart (smaller, the more there are, to fit a popup), and with
+// `longTerm` (by default, for a place with one or two sites, so a popup still fits the map) its
+// years since 2018 under it
+export function CountList({ sites, vehicles = 'all', longTerm = sites.length <= 2 }) {
   const latest = new Set(sites.map(site => site.latest));
   const shared = latest.size === 1 ? sites[0].latest : null;
   const caption = { ...TIGHT, color: 'text.secondary', display: 'block' };
@@ -176,7 +250,13 @@ export function CountList({ sites, vehicles = 'all' }) {
       </Typography>
       {sites.map((site, i) => (
         <Box key={site.ref} sx={{ mt: i ? 1 : 0 }}>
-          <CountRow site={site} chartHeight={sites.length > 2 ? 30 : 44} showLatest={!shared} vehicles={vehicles} />
+          <CountRow
+            site={site}
+            chartHeight={sites.length > 2 ? 30 : 44}
+            showLatest={!shared}
+            vehicles={vehicles}
+            history={longTerm}
+          />
         </Box>
       ))}
       <Typography variant="caption" sx={{ ...caption, mt: 0.75 }}>

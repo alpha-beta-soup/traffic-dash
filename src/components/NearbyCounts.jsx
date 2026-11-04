@@ -36,7 +36,7 @@ export default function NearbyCounts({ camera }) {
         NZTA&apos;s counting site {metres} m {nearest.direction.arrow} {nearest.direction.label}: vehicles passing it each day,
         days late
       </Typography>
-      <CountList sites={here} />
+      <CountList sites={here} longTerm />
     </Paper>
   );
 }

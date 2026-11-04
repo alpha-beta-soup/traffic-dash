@@ -10,7 +10,7 @@ import { normaliseCamera, normaliseEvent, normaliseSign } from './normalise.js';
 import { inNz, tileInNz } from './nz.js';
 import rateLimit from './rateLimit.js';
 import { cameraRoute, normaliseJourneys } from './routes.js';
-import { fetchSites as fetchCountSites, fetchTrafficCounts } from './trafficCounts.js';
+import { fetchHistory, fetchSites as fetchCountSites, fetchTrafficCounts } from './trafficCounts.js';
 import { vehicleCounts, vehiclesEnabled } from './vehicles.js';
 import {
   FEED as WARNINGS_FEED, feedLinks, isCurrent, parseAlert,
@@ -212,6 +212,26 @@ app.get('/api/traffic-counts/:ref', handle(async (req, res) => {
   const site = (await getTrafficCounts()).find(s => s.ref === req.params.ref);
   if (!site) res.status(404).json({ error: 'No such counting site' });
   else res.json(site);
+}));
+
+// A site's monthly traffic since 2018, fetched when first asked for and shared for a day. Only for
+// sites on the map: the reference goes into NZTA's query.
+const HISTORY_TTL = 24 * 60 * 60_000;
+const histories = new Map(); // ref -> { promise, expires }
+app.get('/api/traffic-counts/:ref/history', handle(async (req, res) => {
+  const { ref } = req.params;
+  if (!(await getTrafficCounts()).some(site => site.ref === ref)) {
+    res.status(404).json({ error: 'No such counting site' });
+    return;
+  }
+  const now = Date.now();
+  for (const [key, entry] of histories) if (entry.expires < now) histories.delete(key);
+  if (!histories.has(ref)) {
+    const promise = fetchHistory(fetchCounts, ref);
+    promise.catch(() => histories.delete(ref)); // Tried again next time
+    histories.set(ref, { promise, expires: now + HISTORY_TTL });
+  }
+  res.set('Cache-Control', 'public, max-age=3600').json({ ref, months: await histories.get(ref).promise });
 }));
 
 app.get('/api/events', handle(async (req, res) => {
