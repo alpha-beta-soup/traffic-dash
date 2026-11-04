@@ -9,8 +9,8 @@ const GAP = 8;
 
 // The cameras on a phone: one card at a time, swiped through, with the cards either side peeking
 // in. Says which is showing (`onCurrent(camera)`), for the map to mark, and goes to the camera
-// `target` asks for ({ id }, e.g. tapped on the map). Only the cards on screen (this one, and
-// those peeking) fetch their images.
+// `target` asks for ({ id }, e.g. tapped on the map). Only the cards on screen fetch their
+// images, and only the one showing keeps it up to date (`renderCard(camera, peeking)`).
 export default function CameraRow({
   cameras, target, onCurrent, renderCard,
 }) {
@@ -76,9 +76,9 @@ export default function CameraRow({
           '&:focus-visible': { outline: 2, outlineColor: 'primary.main', outlineStyle: 'solid' },
         }}
       >
-        {cameras.map(camera => (
-          <Box key={camera.id} sx={{ flex: '0 0 100%', scrollSnapAlign: 'center', scrollSnapStop: 'always' }}>
-            {renderCard(camera)}
+        {cameras.map((c, i) => (
+          <Box key={c.id} sx={{ flex: '0 0 100%', scrollSnapAlign: 'center', scrollSnapStop: 'always' }}>
+            {renderCard(c, i !== index)}
           </Box>
         ))}
       </Box>

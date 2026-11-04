@@ -177,7 +177,7 @@ export default function App() {
   const notWorking = unpinnedInView.filter(camera => !isWorking(camera));
   const shown = [...pinnedCameras, ...working, ...notWorking];
 
-  const card = camera => (
+  const card = (camera, peeking) => (
     <Camera
       camera={camera}
       config={config ?? {}}
@@ -188,6 +188,7 @@ export default function App() {
       pinned={pinned.includes(camera.id)}
       onPin={togglePin}
       onFocus={focus}
+      peeking={peeking}
     />
   );
 

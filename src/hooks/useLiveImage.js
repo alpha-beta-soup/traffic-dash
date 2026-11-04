@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ANIMATION_FADE, MAX_REFRESH, MIN_REFRESH } from '../consts';
 import { jpegSize, randomInt } from '../utils';
+import usePageVisible from './usePageVisible';
 
 const RELEASE_MARGIN = 2000; // ms past the crossfade, for a slow decode or a busy page
 
@@ -14,13 +15,15 @@ const RELEASE_MARGIN = 2000; // ms past the crossfade, for a slow decode or a bu
 // - failed: the last fetch failed (any earlier image stays in `live`)
 // - stockImage: NZTA is serving its stock "temporarily unavailable" image (the server spots
 //   it) though the camera isn't marked offline; polling carries on, so this clears itself
-// Not polled while the camera is marked offline or under maintenance (`unavailable`).
-export default function useLiveImage(camera, unavailable) {
+// Not polled while the camera is marked offline or under maintenance (`unavailable`), or while
+// the page is hidden. `once`: fetched once, and not polled (e.g. a card only peeking into view).
+export default function useLiveImage(camera, unavailable, once = false) {
   const { id, name } = camera;
   const [live, setLive] = useState(null);
   const [failed, setFailed] = useState(false);
   const [stockImage, setStockImage] = useState(!!camera.unavailable);
   const objectUrl = useRef(null);
+  const visible = usePageVisible();
   const [shownId, setShownId] = useState(id);
   if (shownId !== id) {
     setShownId(id);
@@ -61,16 +64,16 @@ export default function useLiveImage(camera, unavailable) {
   }, [id, name]);
 
   useEffect(() => {
-    if (unavailable) return undefined;
+    if (unavailable || !visible) return undefined;
     let current = true;
     const load = () => loadImage(() => current);
     load();
-    const timer = setInterval(load, randomInt(MIN_REFRESH, MAX_REFRESH));
+    const timer = !once && setInterval(load, randomInt(MIN_REFRESH, MAX_REFRESH));
     return () => {
       current = false;
       clearInterval(timer);
     };
-  }, [loadImage, unavailable]);
+  }, [loadImage, unavailable, visible, once]);
 
   useEffect(() => () => objectUrl.current && URL.revokeObjectURL(objectUrl.current), []);
 

@@ -81,16 +81,19 @@ function WeatherWarning({ warnings }) {
 // congestion comes from the map, which matches cameras to the traffic lines it has loaded
 // nearbyEvents: road closures and delays near the camera, most serious first
 // warnings: MetService weather warnings covering the camera, most serious first
-// A card only fetches while it's on screen (or nearly): there can be hundreds in the grid.
+// A card only fetches while it's on screen (or nearly): there can be hundreds in the grid. A card
+// only peeking into view (`peeking`, at the edges of a phone's row) shows an image, but doesn't
+// keep it up to date, or play its loop.
 export default function Camera({
-  camera, config, congestion, nearbyEvents = [], warnings = [], loopAll, pinned, onPin, onFocus,
+  camera, config, congestion, nearbyEvents = [], warnings = [], loopAll, pinned, onPin, onFocus, peeking = false,
 }) {
   const { id, name, description, lat, lon, offline, underMaintenance } = camera;
   const unavailable = offline || underMaintenance;
   const card = useRef(null);
-  const { onScreen, seen } = useOnScreen(card);
+  const { onScreen: inView, seen } = useOnScreen(card);
+  const onScreen = inView && !peeking;
   // Scrolled away, the card keeps its last image but stops asking for new ones
-  const { live, failed, stockImage } = useLiveImage(camera, unavailable || !onScreen);
+  const { live, failed, stockImage } = useLiveImage(camera, unavailable || !inView, peeking);
   // Follows the global toggle whenever it changes, but can be overridden per camera
   const [looping, setLooping] = useState(loopAll);
   const [prevLoopAll, setPrevLoopAll] = useState(loopAll);
