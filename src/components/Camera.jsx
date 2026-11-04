@@ -13,6 +13,7 @@ import CameraPlaceholder from './CameraPlaceholder';
 import CameraWeather from './CameraWeather';
 import FadeImage from './FadeImage';
 import { warningChipColours } from './WarningDetails';
+import Icon from './Icon';
 import IconAction from './IconAction';
 import { VehicleSparkline } from './VehicleTrend';
 import useLiveImage from '../hooks/useLiveImage';
@@ -138,8 +139,8 @@ export default function Camera({
 
   return (
     <Card ref={card} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* The image opens the camera's page */}
-      <Box component={Link} to={cameraPath(id)} aria-label={`Open ${name}`} sx={{ position: 'relative', display: 'block', color: 'inherit' }}>
+      {/* The image opens the camera's page (as its title does, the link for the keyboard) */}
+      <Box component={Link} to={cameraPath(id)} aria-label={`Open ${name}`} tabIndex={-1} sx={{ position: 'relative', display: 'block', color: 'inherit' }}>
         <CardMedia
           title={congestion
             ? `${name}\n${congestion.description} congestion (free-flow score ${congestion.score}%)${congestion.directionMatched ? '' : '\nFrom roads in both directions: none nearby run the camera\'s way'}`
@@ -171,8 +172,19 @@ export default function Camera({
         {nearbyEvents.length > 0 && <NearbyEvent events={nearbyEvents} />}
       </Box>
       <CardContent sx={{ flexGrow: 1 }}>
-        <Typography variant="h6" sx={{ color: 'text.primary', lineHeight: 1.2 }}>
+        {/* The camera's page, as the image opens: with a chevron, as Material marks a way to more,
+            as nothing else does on a phone (no pointer turning to a hand over the image) */}
+        <Typography
+          variant="h6"
+          component={Link}
+          to={cameraPath(id)}
+          sx={{
+            display: 'flex', alignItems: 'center', color: 'text.primary', lineHeight: 1.2, textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline' },
+          }}
+        >
           {name}
+          <Icon name="chevron" aria-hidden="true" sx={{ flexShrink: 0, color: 'text.secondary' }} />
         </Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           {replaceAll(description, descriptionReplace)}
