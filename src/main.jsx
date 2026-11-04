@@ -1,6 +1,12 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 
+// MUI's type is made for Roboto: its weights in use (light headings, regular, medium, bold),
+// bundled, so every device has it rather than its own fallback
+import '@fontsource/roboto/300.css';
+import '@fontsource/roboto/400.css';
+import '@fontsource/roboto/500.css';
+import '@fontsource/roboto/700.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import '../styles/weather-icons.min.css';
 import '../styles/weather-icons-wind.min.css';
