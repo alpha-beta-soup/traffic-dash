@@ -36,7 +36,7 @@ const VEHICLE_HOURS = 0.5; // The sparkline's span
 
 const overlayChip = {
   bgcolor: theme => alpha(theme.palette.background.paper, 0.85),
-  fontSize: '0.7rem',
+  typography: 'caption',
   height: 20,
 };
 

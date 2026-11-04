@@ -8,7 +8,7 @@ import { usePhone, useTouch } from '../hooks/useScreen';
 
 const PANEL_SX = {
   m: 0, px: 1, py: 0.5, bgcolor: theme => alpha(theme.palette.background.paper, 0.9), borderRadius: 1, boxShadow: 1,
-  fontSize: '0.75rem', color: 'text.primary',
+  typography: 'caption', color: 'text.primary',
 };
 
 // A key's panel on the map (see the legends in Map), which folds to its `title` to clear the

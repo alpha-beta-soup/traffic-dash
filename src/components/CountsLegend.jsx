@@ -39,7 +39,7 @@ export default function CountsLegend({
         sx={{
           my: 0.5,
           '& .MuiToggleButton-root': {
-            py: touch ? 0.5 : 0, px: touch ? 1.25 : 0.75, fontSize: '0.6875rem', textTransform: 'none', lineHeight: 1.6,
+            py: touch ? 0.5 : 0, px: touch ? 1.25 : 0.75, typography: 'caption', textTransform: 'none',
           },
         }}
       >
@@ -74,7 +74,7 @@ export default function CountsLegend({
                   </Box>
                 )}
                 sx={{
-                  fontSize: '0.75rem', height: touch ? 30 : 24, color: shown ? 'text.primary' : 'text.secondary',
+                  typography: 'caption', height: touch ? 30 : 24, color: shown ? 'text.primary' : 'text.secondary',
                   '& .MuiChip-icon': { ml: '6px', mr: '-2px' },
                 }}
               />

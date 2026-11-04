@@ -294,7 +294,7 @@ function GettingAround({ camera, cameras }) {
           <Typography variant="subtitle2" sx={{ color: 'text.secondary', mt: 1.5 }}>Nearby</Typography>
           <Box component="ul" sx={{ m: 0, pl: 0, listStyle: 'none' }}>
             {nearest.map(({ camera: c, km, direction }) => (
-              <Box component="li" key={c.id} sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, py: 0.25, fontSize: '0.85rem' }}>
+              <Box component="li" key={c.id} sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, py: 0.25, typography: 'body2' }}>
                 <TextLink to={cameraPath(c.id)}>{c.name}</TextLink>
                 <Box component="span" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }} title={`${km.toFixed(1)} km ${direction.label}`}>
                   {km.toFixed(1)} km <Arrow bearing={direction.bearing} /> {direction.label}
@@ -319,7 +319,7 @@ function GettingAround({ camera, cameras }) {
                   aria-current={c.id === camera.id ? 'location' : undefined}
                   sx={{
                     display: 'flex', justifyContent: 'space-between', gap: 1, py: 0.25,
-                    fontSize: '0.85rem', opacity: offline ? 0.5 : 1, fontWeight: c.id === camera.id ? 600 : 400,
+                    typography: 'body2', opacity: offline ? 0.5 : 1, fontWeight: c.id === camera.id ? 600 : 400,
                   }}
                 >
                   {c.id === camera.id ? <span>{c.name}</span> : <TextLink to={cameraPath(c.id)}>{c.name}</TextLink>}
