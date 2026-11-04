@@ -196,17 +196,19 @@ function CountRow({
       <Typography variant="caption" component="p" sx={{ ...TIGHT, color: 'text.secondary', ml: 2, mb: 0.25 }}>
         {details.join(' · ')}
       </Typography>
-      {days ? <DailyChart days={days} height={chartHeight} vehicles={vehicles} /> : <Box sx={{ height: chartHeight }} />}
-      {history && (months?.length > 1
-        ? (
-          <>
-            <Typography variant="caption" sx={{ ...TIGHT, color: 'text.secondary', display: 'block', mt: 0.5 }}>
-              Each month since {months[0].month.slice(0, 4)}
-            </Typography>
-            <LongTermChart months={months} vehicles={vehicles} />
-          </>
-        )
-        : <Box sx={{ height: LONG_H + 24 }} />)}
+      {/* Until they've loaded, the charts' space is kept, in their proportions (they scale with
+          the popup's width), so nothing moves when they arrive */}
+      {days ? <DailyChart days={days} height={chartHeight} vehicles={vehicles} /> : <Box sx={{ aspectRatio: `${W} / ${chartHeight}` }} />}
+      {history && (
+        <>
+          <Typography variant="caption" sx={{ ...TIGHT, color: 'text.secondary', display: 'block', mt: 0.5 }}>
+            {months?.length > 1 ? `Each month since ${months[0].month.slice(0, 4)}` : '\u00a0'}
+          </Typography>
+          {months?.length > 1
+            ? <LongTermChart months={months} vehicles={vehicles} />
+            : <Box sx={{ aspectRatio: `${W} / ${LONG_H + 11}` }} />}
+        </>
+      )}
     </Box>
   );
 }
