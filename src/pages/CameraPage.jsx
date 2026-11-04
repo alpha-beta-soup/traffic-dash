@@ -45,6 +45,7 @@ const clockFormat = new Intl.DateTimeFormat('en-NZ', {
 // Zoom is offered when the frame's own size is noticeably more than it's shown at
 const MIN_ZOOM_GAIN = 1.2;
 const DRAG_THRESHOLD = 4; // px: a press that moves less than this is a click
+const SWIPE = 40; // px across, more than up or down, for a swipe to step a frame
 
 // One axis of the zoomed view: the offset of the visible window into the full-size frame,
 // kept within the frame (or centred, where the frame is smaller than the window)
@@ -56,8 +57,11 @@ const clampAxis = (offset, natural, shown) => (natural <= shown
 // that's well short of its own size (the HD cameras), a click shows it full size around the
 // point clicked; drag to look around, and click again (or Escape) to zoom out. `zoom` ({ x, y }:
 // the top left of the view into the full-size frame, or null) is kept by the page, so it
-// stays put through playback.
-function LargeImage({ src, alt, stale, zoom, onZoom }) {
+// stays put through playback. On a touchscreen, not zoomed in, a swipe steps a frame
+// (`onStep(±1)`): left to the next, right to the one before, as through photos.
+function LargeImage({
+  src, alt, stale, zoom, onZoom, onStep,
+}) {
   const [natural, setNatural] = useState(null);
   const touch = useTouch();
   const [box, setBox] = useState(null); // The image element's size on screen
@@ -87,17 +91,21 @@ function LargeImage({ src, alt, stale, zoom, onZoom }) {
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
   const onPointerDown = (e) => {
-    if (e.button !== 0 || !zoomable) return;
-    press.current = { start: { x: e.clientX, y: e.clientY }, view, moved: false };
+    const swipe = e.pointerType !== 'mouse' && !view;
+    if (e.button !== 0 || (!zoomable && !swipe)) return;
+    press.current = {
+      start: { x: e.clientX, y: e.clientY }, view, swipe, moved: false,
+    };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e) => {
     const p = press.current;
-    if (!p?.view) return;
+    if (!p) return;
     const dx = e.clientX - p.start.x;
     const dy = e.clientY - p.start.y;
     if (!p.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-    p.moved = true;
+    p.moved = true; // Not a tap
+    if (!p.view) return;
     setDragging(true);
     onZoom({ x: p.view.x - dx, y: p.view.y - dy });
   };
@@ -105,7 +113,12 @@ function LargeImage({ src, alt, stale, zoom, onZoom }) {
     const p = press.current;
     press.current = null;
     setDragging(false);
-    if (!p || p.moved) return;
+    if (p?.swipe && p.moved) {
+      const dx = e.clientX - p.start.x;
+      if (Math.abs(dx) >= SWIPE && Math.abs(dx) > Math.abs(e.clientY - p.start.y)) onStep(dx < 0 ? 1 : -1);
+      return;
+    }
+    if (!p || p.moved || !zoomable) return;
     if (p.view) {
       onZoom(null);
       return;
@@ -133,7 +146,9 @@ function LargeImage({ src, alt, stale, zoom, onZoom }) {
           width: '100%',
           maxWidth: natural ? natural.width * MAX_UPSCALE : '100%',
           cursor,
-          touchAction: view ? 'none' : 'auto', // Dragging a zoomed image pans it, not the page
+          // Dragging a zoomed image pans it, not the page; otherwise, up and down scroll the page,
+          // and across is a swipe
+          touchAction: view ? 'none' : 'pan-y pinch-zoom',
           userSelect: 'none',
         }}
       >
@@ -457,7 +472,7 @@ function CameraView({
             </Box>
           ) : (
             <>
-              <LargeImage src={src} alt={name} stale={stale} zoom={zoom} onZoom={setZoom} />
+              <LargeImage src={src} alt={name} stale={stale} zoom={zoom} onZoom={setZoom} onStep={player.step} />
               <PlaybackControls player={player} frames={frames} time={time} />
             </>
           )}
