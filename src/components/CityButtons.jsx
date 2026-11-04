@@ -16,7 +16,12 @@ export const CITIES = {
   Dunedin: { code: 'DUD', lngLat: [170.5028, -45.8788] },
 };
 
-const BUTTON_SX = { opacity: 0.85 };
+// As tall as the map's icon buttons beside them (31 px), with the capitals in the middle: the
+// line keeps room below for descenders, which capitals don't use, so they'd sit high (by half
+// that room, less the gap above them: 1.5 px), and are moved down
+const BUTTON_SX = {
+  opacity: 0.85, height: 31, py: 0, pt: '3px', lineHeight: 1,
+};
 
 // Buttons to go to each city (`onGo([lon, lat])`): named in full on a wide screen, by airport
 // code on a narrower one, and in a menu on a phone
