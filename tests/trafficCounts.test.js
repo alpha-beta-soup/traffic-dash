@@ -23,21 +23,27 @@ const dayRows = (ref, date, total, lanes = 2) => [
 const days = (ref, last, count, total, lanes) => Array.from({ length: count }, (_, i) => dayRows(ref, last - (count - 1 - i) * DAY, total(i), lanes)).flat();
 
 describe('traffic counts', () => {
-  it('compares the latest week with the same days a year before', () => {
+  it('compares the latest week with the same days of recent years, averaged', () => {
     const last = TODAY - 3 * DAY;
     const sites = new Map([['A', site('A')]]);
     const recent = days('A', last, 40, () => 12000);
-    const lastYear = days('A', last - YEAR, 40, () => 10000);
-    const [a] = summarise(sites, recent, lastYear, TODAY);
+    // 9000, 10000 and 11000 a day, one, two and three years before: 10000 on average
+    const past = [9000, 10000, 11000].map((total, y) => days('A', last - (y + 1) * YEAR, 40, () => total));
+    const [a] = summarise(sites, recent, past, TODAY);
     assert.equal(a.latest, '2026-11-01');
     assert.equal(a.days.length, SHOWN_DAYS);
     assert.deepEqual(a.days.at(-1), {
-      date: '2026-11-01', total: 12000, heavy: 1200, lastYear: 10000, lastYearHeavy: 1000, holiday: null, lastYearHoliday: null,
+      date: '2026-11-01', total: 12000, heavy: 1200, baseline: 10000, baselineHeavy: 1000, holiday: null,
     });
     assert.ok(Math.abs(a.week - 0.2) < 1e-9);
-    assert.ok(Math.abs(a.month - 0.2) < 1e-9);
+    // Near it over four weeks: 19 October was Labour Day three years before (2023), whose 11000
+    // drops out of that day's average
+    assert.ok(Math.abs(a.month - 0.2) < 0.01);
     assert.ok(Math.abs(a.heavy.week - 0.2) < 1e-9); // 1200 heavy a day against 1000
-    assert.ok(Math.abs(a.light.month - 0.2) < 1e-9);
+    assert.ok(Math.abs(a.light.week - 0.2) < 1e-9);
+    // Only a year counted before: that's the comparison
+    const [b] = summarise(sites, recent, [past[0], [], []], TODAY);
+    assert.ok(Math.abs(b.week - 12000 / 9000 + 1) < 1e-9);
   });
 
   it('leaves public holidays out of the comparison, and names them', () => {
@@ -45,41 +51,52 @@ describe('traffic counts', () => {
     const sites = new Map([['A', site('A', { region: '09 - Wellington' })]]);
     const labourDay = Date.parse('2026-10-26');
     const recent = days('A', last, 40, i => (last - (39 - i) * DAY === labourDay ? 4000 : 12000));
-    const [a] = summarise(sites, recent, days('A', last - YEAR, 40, () => 10000), TODAY);
+    const [a] = summarise(sites, recent, [days('A', last - YEAR, 40, () => 10000)], TODAY);
     assert.ok(Math.abs(a.week - 0.2) < 1e-9); // Not dragged down by the holiday's 4000
     assert.equal(a.days.find(d => d.date === '2026-10-26').holiday, 'Labour Day');
-    // Easter 2026 (5 April) was a fortnight earlier than 2025's: 52 weeks on from Easter Monday 2025
-    // is an ordinary Monday, a holiday only the year before
-    const series = change([{ total: 100, lastYear: 50, holiday: null, lastYearHoliday: 'Easter Monday' },
-      ...Array.from({ length: 6 }, () => ({ total: 100, lastYear: 100, holiday: null, lastYearHoliday: null }))], 7);
-    assert.equal(series, 0);
+  });
+
+  it('leaves a year’s holiday out of the average it’s in', () => {
+    // Easter 2026 (5 April) was a fortnight earlier than 2025's: 52 weeks on from Easter Monday
+    // 2025 (21 April) is an ordinary Monday, 20 April 2026
+    const last = Date.parse('2026-04-26');
+    const sites = new Map([['A', site('A')]]);
+    const recent = days('A', last, 40, () => 10000);
+    const easterMonday = Date.parse('2025-04-21');
+    const past = [
+      days('A', last - YEAR, 40, i => (last - YEAR - (39 - i) * DAY === easterMonday ? 4000 : 10000)),
+      days('A', last - 2 * YEAR, 40, () => 10000),
+    ];
+    const [a] = summarise(sites, recent, past, last + DAY);
+    assert.equal(a.days.find(d => d.date === '2026-04-20').baseline, 10000); // From the year without it
+    assert.equal(a.week, 0);
   });
 
   it('treats a day missing a lane as not counted, rather than quiet', () => {
     const last = TODAY - DAY;
     const sites = new Map([['A', site('A')]]);
     const recent = [...days('A', last - DAY, 20, () => 10000), ...dayRows('A', last, 5000, 1)];
-    const [a] = summarise(sites, recent, days('A', last - YEAR, 20, () => 10000), TODAY);
+    const [a] = summarise(sites, recent, [days('A', last - YEAR, 20, () => 10000)], TODAY);
     assert.equal(a.latest, isoOf(last - DAY)); // The partial day isn't the latest
     assert.equal(a.week, 0);
   });
 
   it('compares heavy and light vehicles apart, given enough of them', () => {
-    const day = (heavy, lastYearHeavy) => ({
-      total: 1000, heavy, lastYear: 1000, lastYearHeavy, holiday: null, lastYearHoliday: null,
+    const day = (heavy, baselineHeavy) => ({
+      total: 1000, heavy, baseline: 1000, baselineHeavy, holiday: null,
     });
     const trucks = Array.from({ length: 7 }, () => day(130, 100)); // Freight up, cars down
     assert.equal(change(trucks, 7), 0);
     assert.ok(Math.abs(change(trucks, 7, 'heavy') - 0.3) < 1e-9);
     assert.ok(Math.abs(change(trucks, 7, 'light') - -30 / 900) < 1e-9);
-    // 30 trucks a day the year before: too few to say
+    // 30 trucks a day in recent years: too few to say
     assert.equal(change(Array.from({ length: 7 }, () => day(40, 30)), 7, 'heavy'), null);
   });
 
-  it('needs half the days counted both years to compare', () => {
-    const series = Array.from({ length: 7 }, (_, i) => ({ total: 100, lastYear: i < 3 ? 80 : null }));
+  it('needs half the days counted, this year and before, to compare', () => {
+    const series = Array.from({ length: 7 }, (_, i) => ({ total: 100, baseline: i < 3 ? 80 : null }));
     assert.equal(change(series, 7), null);
-    series[3].lastYear = 80;
+    series[3].baseline = 80;
     assert.equal(change(series, 7), 0.25);
   });
 

@@ -201,7 +201,7 @@ app.get('/api/weather-warnings', handle(async (req, res) => {
 // over the usual timeout to add up the counts, so it gets longer.
 const fetchCounts = url => fetchJson(url, { signal: AbortSignal.timeout(60_000) });
 const getCountSites = memo(24 * 60 * 60_000, () => fetchCountSites(fetchCounts));
-const getTrafficCounts = stale(6 * 60 * 60_000, async () => fetchTrafficCounts(fetchCounts, await getCountSites()), { stored: 'traffic-counts' });
+const getTrafficCounts = stale(6 * 60 * 60_000, async () => fetchTrafficCounts(fetchCounts, await getCountSites()), { stored: 'traffic-counts', version: 2 }); // 2: against recent years
 
 // Every site, without its daily counts (those come with /api/traffic-counts/:ref)
 app.get('/api/traffic-counts', handle(async (req, res) => {

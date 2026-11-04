@@ -14,7 +14,7 @@ const settle = () => new Promise((resolve) => { setImmediate(resolve); });
 
 describe('stale', () => {
   it('starts from what was saved, refreshing it in the background if old', async () => {
-    const { saved, read, write } = disk({ counts: { fetched: Date.now() - 7 * HOUR, value: 'saved' } });
+    const { saved, read, write } = disk({ counts: { version: 1, fetched: Date.now() - 7 * HOUR, value: 'saved' } });
     let fetches = 0;
     const get = stale(6 * HOUR, async () => { fetches += 1; return 'fresh'; }, { stored: 'counts', read, write });
     assert.equal(await get(), 'saved'); // At once, not after a fetch
@@ -32,8 +32,16 @@ describe('stale', () => {
     assert.equal(saved.counts.value, 'fresh');
   });
 
+  it('ignores a value saved in another form', async () => {
+    const { read, write } = disk({ counts: { version: 1, fetched: Date.now(), value: 'old form' } });
+    const get = stale(HOUR, async () => 'fresh', {
+      stored: 'counts', version: 2, read, write,
+    });
+    assert.equal(await get(), 'fresh');
+  });
+
   it('keeps a recent saved value without fetching', async () => {
-    const { read, write } = disk({ counts: { fetched: Date.now() - HOUR, value: 'saved' } });
+    const { read, write } = disk({ counts: { version: 1, fetched: Date.now() - HOUR, value: 'saved' } });
     const get = stale(6 * HOUR, async () => assert.fail('fetched'), { stored: 'counts', read, write });
     assert.equal(await get(), 'saved');
   });

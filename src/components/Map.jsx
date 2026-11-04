@@ -213,7 +213,7 @@ export default function Map({
       setHoveredEvent(null);
     });
 
-    // Hovering a counting place (or site, zoomed in) shows how its traffic compares with a year before
+    // Hovering a counting place (or site, zoomed in) shows how its traffic compares with recent years
     COUNT_DOTS.forEach((id) => {
       map.on('mousemove', id, (e) => {
         if (minimisedRef.current) return;

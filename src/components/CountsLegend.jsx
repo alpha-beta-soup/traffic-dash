@@ -12,7 +12,7 @@ const dayFormat = new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'sho
 
 // Names each colour of the traffic counts, and says how old the counts are: they come in days late.
 // Each colour is a button that shows or hides those places (`hidden`, toggled by `onToggle(level)`),
-// e.g. to see only the roads busier than a year before. Above them, which vehicles are compared
+// e.g. to see only the roads busier than recent years. Above them, which vehicles are compared
 // (`vehicles`, chosen with `onVehicles`): all, or heavy or light ones, e.g. to see freight detours.
 export default function CountsLegend({
   sites, hidden, onToggle, vehicles, onVehicles,
@@ -22,7 +22,7 @@ export default function CountsLegend({
   const day = iso => dayFormat.format(new Date(iso));
   return (
     <Box sx={LEGEND_SX} aria-label="Traffic counts key">
-      <Box sx={{ fontWeight: 500 }}>Traffic against a year before</Box>
+      <Box sx={{ fontWeight: 500 }}>Traffic against recent years</Box>
       <ToggleButtonGroup
         exclusive
         size="small"

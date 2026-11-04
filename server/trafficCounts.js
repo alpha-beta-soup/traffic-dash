@@ -3,8 +3,9 @@
 // direction (or a ramp) at a place, counted by loops in the road. The permanent ones send their
 // counts in weekly or so, so the latest are days old: enough to show a road that has been busier
 // or quieter for a while (a detour, a closure), not what's happening now. Busier or quieter than
-// the same days a year before (52 weeks, so the weekdays line up): unlike the weeks just before,
-// that doesn't come to take a long disruption as normal.
+// recent years: the same days of the last YEARS years (52 weeks apart, so the weekdays line up),
+// averaged, so one odd year (roadworks, a gap in counting) counts for less. Unlike the weeks just
+// before, that doesn't come to take a long disruption as normal.
 //   https://opendata-nzta.opendata.arcgis.com/ (TMS daily traffic counts)
 import { anniversaryOf, holidaysAt } from '../shared/holidays.js';
 import { VEHICLES } from '../shared/vehicleClasses.js';
@@ -17,11 +18,12 @@ const PARALLEL = 4; // Requests at once
 
 const DAY = 86_400_000;
 export const YEAR = 364 * DAY; // 52 weeks: the same weekday, a year before
+export const YEARS = 3; // Years before, averaged for comparing with
 export const SHOWN_DAYS = 35; // Of daily counts kept for each site's chart
 const FETCHED_DAYS = 49; // Back from today, as some sites' latest counts are weeks old
 const STALE_DAYS = 30; // A site with nothing newer is left out
-// Days of the latest week, or four, compared with a year before: at least half of them must
-// have counts both years
+// Days of the latest week, or four, compared with recent years: at least half of them must have
+// counts this year and in at least one year before
 export const PERIODS = { week: 7, month: 28 };
 
 const isoDate = ms => new Date(ms).toISOString().slice(0, 10);
@@ -105,33 +107,34 @@ const byDay = (rows, shift = 0) => {
   return sites;
 };
 
-// Vehicles of a class a day, the year before, to compare it at all: a few dozen trucks swing by
-// a quarter on chance alone
+// Vehicles of a class a day in recent years, to compare it at all: a few dozen trucks swing by a
+// quarter on chance alone
 const MIN_DAILY = 40;
 
-// The change over the last `days` days of `series` ([{ total, heavy, lastYear, lastYearHeavy,
-// holiday, lastYearHoliday }], oldest first) from a year before, of a class of `vehicles`
-// (VEHICLES), as a fraction (0.1 is 10% busier), or null without enough days counted both years,
-// or too few vehicles. Public holidays either year are left out: some move (Easter, by up to
-// five weeks), so would otherwise make a week look much quieter, then one much busier.
+// The change over the last `days` days of `series` ([{ total, heavy, baseline, baselineHeavy,
+// holiday }], oldest first) from recent years, of a class of `vehicles` (VEHICLES), as a fraction
+// (0.1 is 10% busier), or null without enough days counted, or too few vehicles. Public holidays
+// are left out (this year's here; the years before's from their baselines): some move (Easter, by
+// up to five weeks), so would otherwise make a week look much quieter, then one much busier.
 export function change(series, days, vehicles = 'all') {
   const [now, before] = VEHICLES[vehicles];
-  const paired = series.slice(-days)
-    .filter(d => now(d) !== null && before(d) !== null && !d.holiday && !d.lastYearHoliday);
+  const paired = series.slice(-days).filter(d => now(d) !== null && before(d) !== null && !d.holiday);
   if (paired.length < days / 2) return null;
   const sum = count => paired.reduce((total, d) => total + count(d), 0);
   const was = sum(before);
   return was >= MIN_DAILY * paired.length ? sum(now) / was - 1 : null;
 }
 
-// Each site with recent counts: its place, its latest day, its change from a year before over the
+// Each site with recent counts: its place, its latest day, its change from recent years over the
 // latest week and four weeks (week, month: of all vehicles; and heavy: { week, month } and light
-// likewise), and its daily counts ({ date, total, heavy, lastYear, lastYearHeavy, holiday,
-// lastYearHoliday }, the holidays named or null) for the last SHOWN_DAYS days to its latest. A day
-// missing a lane (fewer rows than the site's usual) counts as not counted, rather than as a quiet day.
-export function summarise(sites, recentRows, lastYearRows, today) {
+// likewise), and its daily counts for the last SHOWN_DAYS days to its latest: { date, total, heavy,
+// baseline, baselineHeavy, holiday (named, or null) }, the baselines the average of the same day
+// in each year before (pastRows: the rows of each, a year back first) that was counted and not a
+// holiday. A day missing a lane (fewer rows than the site's usual that year) counts as not
+// counted, rather than as a quiet day.
+export function summarise(sites, recentRows, pastRows, today) {
   const recent = byDay(recentRows);
-  const lastYear = byDay(lastYearRows, YEAR);
+  const past = pastRows.map((rows, i) => byDay(rows, (i + 1) * YEAR));
   const oldest = isoDate(today - STALE_DAYS * DAY);
   // A site's holiday on a date, if any: holidays by its anniversary day and year, worked out once
   const holidays = new Map();
@@ -143,25 +146,29 @@ export function summarise(sites, recentRows, lastYearRows, today) {
   };
   return [...recent].flatMap(([ref, days]) => {
     const site = sites.get(ref);
-    const before = lastYear.get(ref) ?? new Map();
-    const lanes = Math.max(...[...days.values(), ...before.values()].map(d => d.rows));
-    const complete = day => (day && day.rows === lanes ? day : null);
-    const counted = [...days.keys()].filter(date => complete(days.get(date))).sort();
+    // A day's counts, if all of its year's lanes were counted (a road can gain a lane)
+    const completeIn = (year) => {
+      const lanes = Math.max(0, ...[...year.values()].map(d => d.rows));
+      return date => (year.get(date)?.rows === lanes ? year.get(date) : null);
+    };
+    const now = completeIn(days);
+    const before = past.map(year => completeIn(year.get(ref) ?? new Map()));
+    const counted = [...days.keys()].filter(now).sort();
     const latest = counted.at(-1);
     if (!site || !latest || latest < oldest) return [];
     const series = Array.from({ length: SHOWN_DAYS }, (_, i) => {
       const ms = Date.parse(latest) - (SHOWN_DAYS - 1 - i) * DAY;
       const date = isoDate(ms);
-      const day = complete(days.get(date));
-      const dayBefore = complete(before.get(date));
+      const day = now(date);
+      const years = before.map((year, y) => !holidayAt(site, ms - (y + 1) * YEAR) && year(date)).filter(Boolean);
+      const mean = count => (years.length ? years.reduce((sum, d) => sum + count(d), 0) / years.length : null);
       return {
         date,
         total: day?.total ?? null,
         heavy: day?.heavy ?? null,
-        lastYear: dayBefore?.total ?? null,
-        lastYearHeavy: dayBefore?.heavy ?? null,
+        baseline: mean(d => d.total),
+        baselineHeavy: mean(d => d.heavy),
         holiday: holidayAt(site, ms),
-        lastYearHoliday: holidayAt(site, ms - YEAR),
       };
     });
     return [{
@@ -178,13 +185,15 @@ export function summarise(sites, recentRows, lastYearRows, today) {
   });
 }
 
-// The sites, their counts, and how they compare with a year before, as of `now`
+// The sites, their counts, and how they compare with recent years, as of `now`. Each year's counts
+// are fetched in turn: the service fails requests when asked for too many at once.
 export async function fetchTrafficCounts(fetchJson, sites, now = Date.now()) {
   const today = Date.parse(isoDate(now));
   const from = today - FETCHED_DAYS * DAY;
-  const [recent, lastYear] = await Promise.all([
-    fetchDaily(fetchJson, from, today + DAY),
-    fetchDaily(fetchJson, from - YEAR, today + DAY - YEAR),
-  ]);
-  return summarise(sites, recent, lastYear, today);
+  const recent = await fetchDaily(fetchJson, from, today + DAY);
+  const past = [];
+  for (let year = 1; year <= YEARS; year += 1) {
+    past.push(await fetchDaily(fetchJson, from - year * YEAR, today + DAY - year * YEAR));
+  }
+  return summarise(sites, recent, past, today);
 }

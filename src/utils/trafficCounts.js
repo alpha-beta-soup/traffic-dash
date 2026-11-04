@@ -1,16 +1,16 @@
 // NZTA's traffic counting sites (server/trafficCounts.js) on the map: how each site's latest week
-// compares with the same week a year before. Most weeks are within 10% of the year before
-// (holidays, weather, a year's growth), so that's "about the same".
+// compares with the same week of recent years (the last three, averaged). Most weeks are within 10%
+// of it (weather, a few years' growth), so that's "about the same".
 export const SAME = 0.1;
 export const MUCH = 0.25;
 
 export const CHANGE_LABELS = {
-  'much-quieter': 'Much quieter than a year before',
-  quieter: 'Quieter than a year before',
-  same: 'About the same as a year before',
-  busier: 'Busier than a year before',
-  'much-busier': 'Much busier than a year before',
-  unknown: 'Not counted enough a year before to compare',
+  'much-quieter': 'Much quieter than recent years',
+  quieter: 'Quieter than recent years',
+  same: 'About the same as recent years',
+  busier: 'Busier than recent years',
+  'much-busier': 'Much busier than recent years',
+  unknown: 'Not counted enough to compare',
 };
 // For the map's key, busiest first, under a heading saying what they're against
 export const CHANGE_KEY = [
@@ -30,7 +30,7 @@ export function countedTo(sites) {
   return { half: days[Math.floor((days.length - 1) / 2)], newest: days.at(-1) };
 }
 
-// A change (0.1 is 10% busier than a year before; null if unknown) → a CHANGE_LABELS key
+// A change (0.1 is 10% busier than recent years; null if unknown) → a CHANGE_LABELS key
 export const changeLevel = (change) => {
   if (change === null || change === undefined) return 'unknown';
   if (change <= -MUCH) return 'much-quieter';

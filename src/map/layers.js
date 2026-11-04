@@ -117,7 +117,7 @@ export const WARNING_LAYERS = ['warning-areas', 'warning-outlines'];
 const firstRoadLayer = map => map.getStyle().layers.find(layer => layer['source-layer'] === 'transportation')?.id;
 
 // NZTA's traffic counting sites (utils/trafficCounts): a dot each, coloured by how its latest
-// week compares with a year before (and signed, and labelled when it's changed), and sized by its
+// week compares with recent years (and signed, and labelled when it's changed), and sized by its
 // traffic. Zoomed out, the sites at a place (a road's directions, an interchange's ramps) share a
 // dot; from SITES_ZOOM, each has its own (bar those at the very same spot), to hover singly.
 export const SITES_ZOOM = 16;

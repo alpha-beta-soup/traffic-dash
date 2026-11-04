@@ -20,8 +20,11 @@ export const memo = (ttl, fn) => {
 // Like memo, but once there's a value it's served as is while a newer one is fetched in the
 // background; a failed refresh keeps the old value (and is tried again next time). With `stored`
 // (a name), each value is also saved to disk (server/stored.js), and the last one saved is where
-// it starts after a restart, rather than with nothing until the first fetch.
-export const stale = (ttl, fn, { stored, read = readStored, write = writeStored } = {}) => {
+// it starts after a restart, rather than with nothing until the first fetch; unless it was saved
+// with another `version`: raise it when the value's form changes, so an old one isn't served.
+export const stale = (ttl, fn, {
+  stored, version = 1, read = readStored, write = writeStored,
+} = {}) => {
   let value;
   let fetched = 0;
   let pending = null;
@@ -30,13 +33,13 @@ export const stale = (ttl, fn, { stored, read = readStored, write = writeStored 
       .then((result) => {
         value = result;
         fetched = Date.now();
-        if (stored) write(stored, { fetched, value }).catch(err => console.error(`Saving ${stored}: ${err.message}`));
+        if (stored) write(stored, { version, fetched, value }).catch(err => console.error(`Saving ${stored}: ${err.message}`));
       })
       .finally(() => { pending = null; });
     return pending;
   };
   let loading = stored && read(stored).then((saved) => {
-    if (saved && value === undefined) ({ value, fetched } = saved);
+    if (saved?.version === version && value === undefined) ({ value, fetched } = saved);
   });
   return async () => {
     if (loading) {

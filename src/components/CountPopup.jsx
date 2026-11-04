@@ -42,13 +42,13 @@ const weekends = days => days.reduce((runs, d, i) => {
   return runs;
 }, []);
 
-// The site's daily counts (a line, gaps where not counted) over the same days a year before
-// (dashed), on shaded weekends: traffic dips at the weekend, more so than most real changes. Public
-// holidays are amber, and paler for one only the year before (moving ones, like Easter); they're
-// left out of the comparison.
+// The site's daily counts (a line, gaps where not counted) over the same days of recent years,
+// averaged (dashed), on shaded weekends: traffic dips at the weekend, more so than most real
+// changes. Public holidays are amber, and left out of the comparison (as are the years before's,
+// from their average).
 function DailyChart({ days, height: H, vehicles }) {
   const theme = useTheme();
-  const [now, before] = VEHICLES[vehicles]; // A day's count of those vehicles, and a year before's
+  const [now, before] = VEHICLES[vehicles]; // A day's count of those vehicles, and recent years'
   const top = Math.max(1, ...days.flatMap(d => [now(d), before(d)]).filter(v => v !== null));
   const x = i => (i / (days.length - 1)) * W;
   const y = v => H - (v / top) * H;
@@ -70,7 +70,7 @@ function DailyChart({ days, height: H, vehicles }) {
       viewBox={`0 0 ${W} ${H}`}
       style={{ width: '100%', height: 'auto', display: 'block' }}
       role="img"
-      aria-label="Vehicles a day over five weeks, and the same days a year before, with weekends and public holidays shaded"
+      aria-label="Vehicles a day over five weeks, and the same days of recent years, with weekends and public holidays shaded"
     >
       {weekends(days).map(([first, last]) => {
         const left = Math.max(0, x(first) - half);
@@ -78,7 +78,6 @@ function DailyChart({ days, height: H, vehicles }) {
       })}
       {days.map((d, i) => {
         if (d.holiday) return band(i, alpha(theme.palette.warning.main, dark ? 0.3 : 0.22), d.holiday);
-        if (d.lastYearHoliday) return band(i, alpha(theme.palette.warning.main, dark ? 0.14 : 0.1), `${d.lastYearHoliday}, a year before`);
         return null;
       })}
       <line x1={0} x2={W} y1={H} y2={H} stroke={theme.palette.divider} />
@@ -148,7 +147,7 @@ function ChartKey() {
   const block = fill => <rect x={4} y={0} width={10} height={10} fill={fill} />;
   const marks = [
     [line({ stroke: seriesColour(theme), strokeWidth: 1.25 }), 'This year'],
-    [line({ stroke: theme.palette.text.secondary, strokeWidth: 1.5, strokeDasharray: '3 3', strokeLinecap: 'butt' }), 'A year before'],
+    [line({ stroke: theme.palette.text.secondary, strokeWidth: 1.5, strokeDasharray: '3 3', strokeLinecap: 'butt' }), 'Recent years'],
     [block(theme.palette.action.selected), 'Weekend'],
     [block(alpha(theme.palette.warning.main, dark ? 0.3 : 0.22)), 'Holiday'],
   ];
@@ -173,7 +172,7 @@ export function CountList({ sites, vehicles = 'all' }) {
   return (
     <Box>
       <Typography variant="caption" sx={{ ...caption, mb: 0.75 }}>
-        {VEHICLE_CLASSES[vehicles]} against the same days a year before{shared && `, to ${day(shared)}`}
+        {VEHICLE_CLASSES[vehicles]} against the same days of the last 3 years{shared && `, to ${day(shared)}`}
       </Typography>
       {sites.map((site, i) => (
         <Box key={site.ref} sx={{ mt: i ? 1 : 0 }}>
